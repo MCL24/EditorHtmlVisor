@@ -1,0 +1,3 @@
+# Finales de línea LF en el repositorio para todos los archivos de texto,
+# sin importar el sistema operativo de quien clone el proyecto.
+* text=auto eol=lf

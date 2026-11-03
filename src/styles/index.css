@@ -1,0 +1,12 @@
+/*
+ * index.css — Punto de entrada de los estilos. Solo importa los demás archivos.
+ *
+ *   base.css        variables CSS (colores, tamaños) de ambos temas + reset
+ *   layout.css      estructura general: barras, paneles, divisor, responsive
+ *   components.css  botones, inputs, interruptor, diálogos, avisos
+ *   preview.css     visor: barra, marco de dispositivo, consola
+ */
+@import './base.css';
+@import './layout.css';
+@import './components.css';
+@import './preview.css';

@@ -1,0 +1,287 @@
+/*
+ * layout.css — Estructura general de la pantalla.
+ *
+ *   ┌──────────────── toolbar ────────────────┐
+ *   │ (mobile-tabs, solo < 768px)             │
+ *   ├──── editor ────┬┬──────── visor ────────┤
+ *   │                ││ preview-bar           │
+ *   │                ││ preview-stage         │
+ *   │                ││ console               │
+ *   ├────────────────┴┴───────────────────────┤
+ *   └─────────────── statusbar ───────────────┘
+ */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh; /* en móviles, descuenta las barras del navegador */
+}
+
+/* --- Barra superior --------------------------------------------------------- */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: var(--toolbar-height);
+  padding: 6px 12px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+}
+
+.toolbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.toolbar__logo {
+  width: 24px;
+  height: 24px;
+}
+.toolbar__logo rect {
+  fill: var(--accent);
+}
+.toolbar__logo path {
+  fill: none;
+  stroke: var(--accent-text);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0; /* sin esto, el contenido ensancharía toda la página en pantallas angostas */
+  /* Si no entran, los botones se desplazan horizontalmente en lugar de desbordar. */
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/*
+ * Alinea los botones a la derecha con un margen automático en lugar de
+ * justify-content: flex-end. Con flex-end, cuando no hay espacio, los primeros
+ * botones quedarían cortados a la izquierda, fuera del alcance del scroll.
+ */
+.toolbar__actions > :first-child {
+  margin-left: auto;
+}
+
+.toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-inline: 6px;
+  border-left: 1px solid var(--border);
+}
+.toolbar__group:first-child {
+  border-left: 0;
+}
+
+/* --- Área de trabajo -------------------------------------------------------- */
+.workspace {
+  display: flex;
+  flex: 1;
+  min-height: 0; /* permite que los hijos con scroll no estiren el contenedor */
+}
+
+.pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px; /* = CONFIG.minPaneWidthPx */
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pane--editor {
+  flex: 0 0 calc((100% - var(--splitter-width)) * var(--split));
+  background: var(--bg-editor);
+}
+
+.pane--preview {
+  flex: 1 1 0;
+  background: var(--bg-elevated);
+}
+
+.editor {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Capa que aparece al arrastrar un archivo sobre el editor (ver file-io.ts). */
+.drop-overlay {
+  position: absolute;
+  inset: 8px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent-soft) 85%, transparent);
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-lg);
+  pointer-events: none;
+  z-index: 10;
+}
+.pane--editor[data-dragging='true'] .drop-overlay {
+  display: flex;
+}
+
+/* --- Divisor ---------------------------------------------------------------- */
+.splitter {
+  flex: 0 0 var(--splitter-width);
+  background: var(--border);
+  cursor: col-resize;
+  touch-action: none; /* evita que el navegador interprete el arrastre como scroll */
+  transition: background 0.15s;
+}
+.splitter:hover,
+.splitter:focus-visible,
+.is-resizing .splitter {
+  background: var(--accent);
+}
+
+/* Mientras se arrastra: sin selección de texto y el iframe no "roba" el puntero. */
+.is-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+.is-resizing iframe {
+  pointer-events: none;
+}
+
+/* --- Barra de estado -------------------------------------------------------- */
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: var(--statusbar-height);
+  padding-inline: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.statusbar__spacer {
+  flex: 1;
+}
+
+.statusbar__save::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  vertical-align: 1px;
+}
+.statusbar__save[data-state='pending']::before {
+  background: var(--warning);
+}
+.statusbar__save[data-state='failed'] {
+  color: var(--danger);
+}
+.statusbar__save[data-state='failed']::before {
+  background: var(--danger);
+}
+
+.statusbar__console {
+  padding: 1px 8px;
+  font-size: 12px;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.statusbar__console:hover {
+  background: var(--bg-hover);
+}
+.statusbar__console[data-state='warn'] {
+  color: var(--warning);
+}
+.statusbar__console[data-state='error'] {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* --- Pantalla completa del visor -------------------------------------------- */
+.is-preview-fullscreen .toolbar,
+.is-preview-fullscreen .mobile-tabs,
+.is-preview-fullscreen .statusbar,
+.is-preview-fullscreen .pane--editor,
+.is-preview-fullscreen .splitter {
+  display: none;
+}
+.is-preview-fullscreen .pane--preview {
+  display: flex !important; /* también en móvil, aunque esté en la pestaña Código */
+}
+
+/* --- Pestañas móviles (ocultas en escritorio) ------------------------------- */
+.mobile-tabs {
+  display: none;
+}
+
+/* =============================================================================
+   Responsive: < 768px (= CONFIG.mobileBreakpointPx)
+   Se muestra un solo panel a la vez y se elige con las pestañas.
+   ============================================================================= */
+@media (max-width: 767.98px) {
+  .toolbar__title,
+  .btn__label,
+  .switch__label {
+    display: none;
+  }
+
+  .mobile-tabs {
+    display: flex;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+  }
+  .mobile-tabs__tab {
+    flex: 1;
+    padding: 10px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+  }
+  .mobile-tabs__tab[aria-selected='true'] {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .splitter {
+    display: none;
+  }
+  .pane {
+    min-width: 0;
+    /* Base 0 (no auto): con auto, el panel tomaría el ancho de la línea de código más larga. */
+    flex: 1 1 0 !important;
+  }
+  .workspace[data-mobile-tab='code'] .pane--preview,
+  .workspace[data-mobile-tab='preview'] .pane--editor {
+    display: none;
+  }
+
+  .statusbar {
+    gap: 10px;
+  }
+  #status-length {
+    display: none;
+  }
+}

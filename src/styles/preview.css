@@ -1,0 +1,207 @@
+/*
+ * preview.css — Panel del visor: mini-barra, escenario con marco de
+ * dispositivo y panel de consola.
+ */
+
+/* --- Mini-barra del visor --------------------------------------------------- */
+.preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--previewbar-height);
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.preview-bar__custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+}
+
+.preview-bar__dims {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.preview-bar__spacer {
+  flex: 1;
+}
+
+/* El botón "Salir de pantalla completa" solo se ve en pantalla completa. */
+.preview-bar__exit {
+  display: none;
+}
+.is-preview-fullscreen .preview-bar__exit {
+  display: inline-flex;
+}
+
+/* --- Escenario -------------------------------------------------------------- */
+.preview-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+/* Modo escritorio: el iframe ocupa todo el escenario. */
+.preview-stage[data-mode='desktop'] .device-shell,
+.preview-stage[data-mode='desktop'] .device-frame {
+  width: 100%;
+  height: 100%;
+}
+
+/* Modo dispositivo: fondo neutro y marco centrado (tamaños en devices.ts). */
+.preview-stage[data-mode='device'] {
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-stage);
+}
+.preview-stage[data-mode='device'] .device-shell {
+  position: relative;
+  flex-shrink: 0;
+}
+.preview-stage[data-mode='device'] .device-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  border-radius: 14px;
+  overflow: hidden;
+  /* El "bisel" usa box-shadow para no alterar las dimensiones reales del iframe. */
+  box-shadow: 0 0 0 8px var(--device-bezel), var(--shadow);
+}
+
+.device-frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  /* Fondo blanco como un navegador real, aunque la app esté en tema oscuro. */
+  background: #fff;
+}
+
+/* --- Consola ---------------------------------------------------------------- */
+.console {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.console__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 8px 2px 4px;
+}
+
+.console__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 500;
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.console__toggle:hover {
+  background: var(--bg-hover);
+}
+
+.console__chevron {
+  width: 16px;
+  height: 16px;
+  transform: rotate(-90deg);
+  transition: transform 0.15s;
+}
+.console[data-open='true'] .console__chevron {
+  transform: none;
+}
+
+.console__count {
+  min-width: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  border-radius: 9px;
+}
+.console__count[data-state='warn'] {
+  color: #fff;
+  background: var(--warning);
+}
+.console__count[data-state='error'] {
+  color: #fff;
+  background: var(--danger);
+}
+
+.console__list {
+  display: none;
+  height: 180px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border-top: 1px solid var(--border);
+}
+.console[data-open='true'] .console__list {
+  display: block;
+}
+.console__list[data-empty='true']::before {
+  content: 'Sin mensajes. Usá console.log() en tu código para verlos acá.';
+  display: block;
+  padding: 10px 12px;
+  font-family: var(--font-ui);
+  color: var(--text-muted);
+}
+
+.console__entry {
+  display: flex;
+  gap: 8px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.console__entry--warn {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+}
+.console__entry--error {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+.console__level {
+  flex: 0 0 44px;
+  font-size: 11px;
+  text-transform: uppercase;
+  opacity: 0.7;
+  padding-top: 1px;
+}
+
+.console__message {
+  flex: 1;
+  margin: 0;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 767.98px) {
+  .console__list {
+    height: 140px;
+  }
+}

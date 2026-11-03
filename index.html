@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Editor HTML con vista previa en vivo. Funciona 100% en tu navegador.">
+  <title>Editor HTML Visor</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <!--
+    Aplica el tema guardado ANTES de pintar la página, para evitar un parpadeo
+    del tema claro al abrir en modo oscuro. La lógica completa está en src/ui/theme.ts.
+  -->
+  <script>
+    (function () {
+      var theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      try {
+        var saved = JSON.parse(localStorage.getItem('ehv:settings') || '{}').theme;
+        if (saved === 'light' || saved === 'dark') theme = saved;
+      } catch (e) { /* sin acceso a localStorage: se usa el tema del sistema */ }
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
+  <script type="module" src="/src/main.ts"></script>
+</head>
+<body>
+  <!-- ================================================================
+       Iconos (sprite SVG). Se usan con <svg><use href="#i-nombre"/></svg>.
+       ================================================================ -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    <defs>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5v14l11-7z" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></symbol>
+      <symbol id="i-wand" viewBox="0 0 24 24"><path d="M4 20 15 9m-2-2 2-2 4 4-2 2M17 3v2m4 2h-2M18.5 5.5 20 4"/></symbol>
+      <symbol id="i-fold" viewBox="0 0 24 24"><path d="m7 14 5-5 5 5M7 20h10M7 4h10"/></symbol>
+      <symbol id="i-unfold" viewBox="0 0 24 24"><path d="m7 9 5 5 5-5M7 20h10M7 4h10"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></symbol>
+      <symbol id="i-wrap" viewBox="0 0 24 24"><path d="M4 6h16M4 12h13a3 3 0 0 1 0 6h-4m2-2-2 2 2 2M4 18h5"/></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6v18h12V7zm0 0v4h4M9 13h6M9 17h6"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m-5 5 5-5 5 5M4 20h16"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12m-5-5 5 5 5-5M4 20h16"/></symbol>
+      <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5m11-5v5h-5"/></symbol>
+      <symbol id="i-collapse" viewBox="0 0 24 24"><path d="M9 4v5H4m11-5v5h5M9 20v-5H4m11 5v-5h5"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></symbol>
+      <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></symbol>
+      <symbol id="i-rotate" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M3 12a9 9 0 0 0 4 7.5M21 12a9 9 0 0 0-4-7.5"/></symbol>
+      <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6m0-6-9 9M18 14v6H4V6h6"/></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/></symbol>
+    </defs>
+  </svg>
+
+  <div class="app" id="app">
+    <!-- ================================================================
+         Barra superior
+         ================================================================ -->
+    <header class="toolbar" role="toolbar" aria-label="Acciones">
+      <div class="toolbar__brand">
+        <svg class="toolbar__logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M12 10l-6 6 6 6M20 10l6 6-6 6"/></svg>
+        <span class="toolbar__title">Editor HTML Visor</span>
+      </div>
+
+      <div class="toolbar__actions">
+        <div class="toolbar__group" aria-label="Vista previa">
+          <button class="btn btn--primary" id="btn-preview" title="Previsualizar (Ctrl+Enter)">
+            <svg class="icon"><use href="#i-play"/></svg><span class="btn__label">Previsualizar</span>
+          </button>
+          <label class="switch" title="Actualizar el visor automáticamente mientras escribís">
+            <input type="checkbox" id="toggle-auto" role="switch">
+            <span class="switch__track" aria-hidden="true"></span>
+            <span class="switch__label">Auto</span>
+          </label>
+        </div>
+
+        <div class="toolbar__group" aria-label="Código">
+          <button class="btn" id="btn-format" title="Formatear (Shift+Alt+F)">
+            <svg class="icon"><use href="#i-wand"/></svg><span class="btn__label">Formatear</span>
+          </button>
+          <button class="btn btn--icon" id="btn-fold" title="Plegar todo" aria-label="Plegar todo">
+            <svg class="icon"><use href="#i-fold"/></svg>
+          </button>
+          <button class="btn btn--icon" id="btn-unfold" title="Desplegar todo" aria-label="Desplegar todo">
+            <svg class="icon"><use href="#i-unfold"/></svg>
+          </button>
+          <button class="btn btn--icon" id="btn-search" title="Buscar y reemplazar (Ctrl+F)" aria-label="Buscar y reemplazar">
+            <svg class="icon"><use href="#i-search"/></svg>
+          </button>
+          <button class="btn btn--icon" id="btn-wrap" title="Ajuste de línea" aria-label="Ajuste de línea" aria-pressed="false">
+            <svg class="icon"><use href="#i-wrap"/></svg>
+          </button>
+          <div class="font-size" role="group" aria-label="Tamaño de fuente">
+            <button class="btn btn--icon btn--text" id="btn-font-dec" title="Reducir fuente" aria-label="Reducir fuente">A−</button>
+            <span class="font-size__value" id="font-size-label" aria-live="polite">14</span>
+            <button class="btn btn--icon btn--text" id="btn-font-inc" title="Aumentar fuente" aria-label="Aumentar fuente">A+</button>
+          </div>
+        </div>
+
+        <div class="toolbar__group" aria-label="Archivo">
+          <button class="btn" id="btn-sample" title="Cargar un HTML de ejemplo">
+            <svg class="icon"><use href="#i-file"/></svg><span class="btn__label">Muestra</span>
+          </button>
+          <button class="btn" id="btn-clear" title="Vaciar el editor">
+            <svg class="icon"><use href="#i-trash"/></svg><span class="btn__label">Limpiar</span>
+          </button>
+          <button class="btn" id="btn-import" title="Importar un archivo .html, .htm o .txt (también podés arrastrarlo al editor)">
+            <svg class="icon"><use href="#i-upload"/></svg><span class="btn__label">Importar</span>
+          </button>
+          <input type="file" id="file-input" accept=".html,.htm,.txt,text/html,text/plain" hidden>
+          <button class="btn" id="btn-export" title="Exportar como .html (Ctrl+S)">
+            <svg class="icon"><use href="#i-download"/></svg><span class="btn__label">Exportar</span>
+          </button>
+        </div>
+
+        <div class="toolbar__group" aria-label="Vista">
+          <button class="btn btn--icon" id="btn-fullscreen" title="Pantalla completa del visor" aria-label="Pantalla completa del visor">
+            <svg class="icon"><use href="#i-expand"/></svg>
+          </button>
+          <button class="btn btn--icon" id="btn-theme" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">
+            <svg class="icon icon--light-only"><use href="#i-moon"/></svg>
+            <svg class="icon icon--dark-only"><use href="#i-sun"/></svg>
+          </button>
+          <button class="btn btn--icon" id="btn-help" title="Ayuda y atajos" aria-label="Ayuda y atajos">
+            <svg class="icon"><use href="#i-help"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Pestañas: solo visibles en pantallas angostas (< 768px). -->
+    <nav class="mobile-tabs" role="tablist" aria-label="Paneles">
+      <button class="mobile-tabs__tab" id="tab-code" role="tab" aria-selected="true" aria-controls="editor-pane">Código</button>
+      <button class="mobile-tabs__tab" id="tab-preview" role="tab" aria-selected="false" aria-controls="preview-pane">Vista previa</button>
+    </nav>
+
+    <!-- ================================================================
+         Área de trabajo: editor | divisor | visor
+         ================================================================ -->
+    <main class="workspace" id="workspace" data-mobile-tab="code">
+      <section class="pane pane--editor" id="editor-pane" aria-label="Editor de código">
+        <div class="editor" id="editor"></div>
+        <div class="drop-overlay" aria-hidden="true">Soltá el archivo para importarlo</div>
+      </section>
+
+      <div class="splitter" id="splitter" role="separator" tabindex="0"
+           aria-orientation="vertical" aria-controls="editor-pane" aria-label="Redimensionar paneles"
+           aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"
+           title="Arrastrá para redimensionar · Doble clic: 50/50"></div>
+
+      <section class="pane pane--preview" id="preview-pane" aria-label="Vista previa">
+        <div class="preview-bar">
+          <select class="input" id="device-select" aria-label="Dispositivo"></select>
+          <div class="preview-bar__custom" id="device-custom" hidden>
+            <input class="input input--number" type="number" id="device-width" aria-label="Ancho personalizado (px)">
+            <span aria-hidden="true">×</span>
+            <input class="input input--number" type="number" id="device-height" aria-label="Alto personalizado (px)">
+          </div>
+          <button class="btn btn--icon" id="device-rotate" title="Rotar (vertical/horizontal)" aria-label="Rotar dispositivo" aria-pressed="false">
+            <svg class="icon"><use href="#i-rotate"/></svg>
+          </button>
+          <span class="preview-bar__dims" id="device-dims" title="Dimensiones del visor"></span>
+          <span class="preview-bar__spacer"></span>
+          <button class="btn btn--icon" id="btn-reload" title="Recargar vista previa" aria-label="Recargar vista previa">
+            <svg class="icon"><use href="#i-refresh"/></svg>
+          </button>
+          <button class="btn btn--icon" id="btn-open-tab" title="Abrir en pestaña nueva" aria-label="Abrir en pestaña nueva">
+            <svg class="icon"><use href="#i-external"/></svg>
+          </button>
+          <button class="btn btn--icon preview-bar__exit" id="btn-exit-fullscreen" title="Salir de pantalla completa (Esc)" aria-label="Salir de pantalla completa">
+            <svg class="icon"><use href="#i-collapse"/></svg>
+          </button>
+        </div>
+
+        <div class="preview-stage" id="preview-stage" data-mode="desktop">
+          <div class="device-shell" id="device-shell">
+            <div class="device-frame" id="device-frame">
+              <!-- El atributo sandbox se fija también desde src/preview/preview.ts. Sin allow-same-origin. -->
+              <iframe id="preview-frame" title="Vista previa del HTML"
+                      sandbox="allow-scripts allow-modals allow-forms allow-popups"></iframe>
+            </div>
+          </div>
+        </div>
+
+        <section class="console" id="console" data-open="false" aria-label="Consola del visor">
+          <header class="console__header">
+            <button class="console__toggle" id="console-toggle" aria-expanded="false" aria-controls="console-list">
+              <svg class="icon console__chevron"><use href="#i-chevron"/></svg>
+              Consola
+              <span class="console__count" id="console-count" data-state="none">0</span>
+            </button>
+            <button class="btn btn--small" id="console-clear" title="Limpiar consola">Limpiar</button>
+          </header>
+          <ol class="console__list" id="console-list" data-empty="true"></ol>
+        </section>
+      </section>
+    </main>
+
+    <!-- ================================================================
+         Barra de estado
+         ================================================================ -->
+    <footer class="statusbar">
+      <span id="status-cursor">Lín 1, Col 1</span>
+      <span id="status-length">0 caracteres</span>
+      <span class="statusbar__save" id="status-save" data-state="saved">Guardado</span>
+      <span class="statusbar__spacer"></span>
+      <button class="statusbar__console" id="status-console" data-state="ok" title="Mostrar la consola del visor">Sin errores</button>
+    </footer>
+  </div>
+
+  <!-- ================================================================
+       Diálogos (ver src/ui/dialogs.ts)
+       ================================================================ -->
+  <dialog class="dialog" id="confirm-dialog" aria-labelledby="confirm-title">
+    <h2 class="dialog__title" id="confirm-title">Confirmar</h2>
+    <p id="confirm-message"></p>
+    <div class="dialog__actions">
+      <button class="btn" data-close>Cancelar</button>
+      <button class="btn btn--primary" id="confirm-ok">Aceptar</button>
+    </div>
+  </dialog>
+
+  <dialog class="dialog" id="export-dialog" aria-labelledby="export-title">
+    <form method="dialog" id="export-form">
+      <h2 class="dialog__title" id="export-title">Exportar</h2>
+      <label class="field">
+        <span class="field__label">Nombre del archivo</span>
+        <input class="input" id="export-name" type="text" autocomplete="off" spellcheck="false" required>
+      </label>
+      <div class="dialog__actions">
+        <button type="button" class="btn" id="export-copy">
+          <svg class="icon"><use href="#i-copy"/></svg>Copiar al portapapeles
+        </button>
+        <span class="dialog__spacer"></span>
+        <button type="button" class="btn" data-close>Cancelar</button>
+        <button type="submit" class="btn btn--primary" id="export-download">
+          <svg class="icon"><use href="#i-download"/></svg>Descargar
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="dialog dialog--wide" id="help-dialog" aria-labelledby="help-title">
+    <h2 class="dialog__title" id="help-title">Ayuda</h2>
+
+    <h3>Cómo se usa</h3>
+    <ul class="help-list">
+      <li>Escribí HTML en el panel izquierdo; la vista previa de la derecha se actualiza sola mientras escribís (interruptor <strong>Auto</strong>).</li>
+      <li>Si desactivás <strong>Auto</strong>, usá <strong>Previsualizar</strong> o <kbd data-mod>Ctrl</kbd>+<kbd>Enter</kbd> para actualizar a mano. Útil si tu código tiene un bucle que bloquea la página.</li>
+      <li>Arrastrá el divisor central para cambiar el tamaño de los paneles. Doble clic lo vuelve a 50/50.</li>
+      <li>Elegí un dispositivo en la barra del visor para probar diseños responsive; el botón de rotar alterna vertical/horizontal.</li>
+      <li>Los <code>console.log</code> y errores de tu página aparecen en la <strong>Consola</strong>, debajo del visor.</li>
+      <li>Podés <strong>arrastrar un archivo</strong> .html, .htm o .txt sobre el editor para importarlo (máx. 5 MB).</li>
+      <li>Tu código se guarda automáticamente en este navegador y <strong>nunca se envía a ningún servidor</strong>.</li>
+    </ul>
+
+    <h3>Atajos de teclado</h3>
+    <table class="shortcuts">
+      <tbody>
+        <tr><td><kbd data-mod>Ctrl</kbd>+<kbd>Enter</kbd></td><td>Previsualizar</td></tr>
+        <tr><td><kbd data-mod>Ctrl</kbd>+<kbd>S</kbd></td><td>Exportar</td></tr>
+        <tr><td><kbd>Shift</kbd>+<kbd data-alt>Alt</kbd>+<kbd>F</kbd></td><td>Formatear</td></tr>
+        <tr><td><kbd data-mod>Ctrl</kbd>+<kbd>F</kbd></td><td>Buscar y reemplazar</td></tr>
+        <tr><td><kbd data-mod>Ctrl</kbd>+<kbd>/</kbd></td><td>Comentar / descomentar</td></tr>
+        <tr><td><kbd data-mod>Ctrl</kbd>+<kbd>D</kbd></td><td>Seleccionar la siguiente coincidencia (múltiples cursores)</td></tr>
+        <tr><td><kbd data-alt>Alt</kbd>+clic</td><td>Agregar un cursor</td></tr>
+        <tr><td><kbd data-mod>Ctrl</kbd>+<kbd>Z</kbd> / <kbd data-mod>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></td><td>Deshacer / rehacer</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Salir de pantalla completa / cerrar ventanas</td></tr>
+        <tr><td><kbd>Esc</kbd> y luego <kbd>Tab</kbd></td><td>Salir del editor con el teclado</td></tr>
+      </tbody>
+    </table>
+
+    <div class="dialog__actions">
+      <button class="btn btn--primary" data-close>Entendido</button>
+    </div>
+  </dialog>
+
+  <!-- Contenedor de avisos emergentes (ver src/ui/toast.ts). -->
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+</body>
+</html>

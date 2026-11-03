@@ -1,0 +1,131 @@
+/*
+ * base.css — Variables de diseño y reset mínimo.
+ *
+ * Todos los colores de la app salen de estas variables. Para cambiar la
+ * paleta, editá solo este archivo.
+ *
+ * El tema se elige con el atributo data-theme en <html>. Lo fija primero un
+ * script en index.html (para evitar parpadeo) y luego src/ui/theme.ts.
+ */
+
+:root {
+  /* Tipografía */
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
+
+  /* Tamaños */
+  --toolbar-height: 48px;
+  --statusbar-height: 26px;
+  --previewbar-height: 40px;
+  --splitter-width: 6px;
+  --radius: 6px;
+  --radius-lg: 10px;
+
+  /* Proporción del editor (la ajusta src/ui/splitter.ts) */
+  --split: 0.5;
+
+  /* --- Tema claro (por defecto) --- */
+  --bg: #f4f5f8;
+  --bg-elevated: #ffffff;
+  --bg-editor: #ffffff;
+  --bg-hover: #e9ebf0;
+  --bg-active: #dde1ea;
+  --bg-stage: #e6e8ee;
+  --border: #d9dce3;
+  --text: #1d2433;
+  --text-muted: #687083;
+  --accent: #2f6fde;
+  --accent-hover: #255fc4;
+  --accent-text: #ffffff;
+  --accent-soft: #e3ecfc;
+  --danger: #d23b3b;
+  --danger-hover: #b83030;
+  --warning: #b7791f;
+  --success: #2f9e5b;
+  --editor-active-line: #f2f5fb;
+  --shadow: 0 6px 24px rgb(15 23 42 / 0.14);
+  --device-bezel: #1d2433;
+}
+
+/* Tema oscuro. */
+:root[data-theme='dark'] {
+  --bg: #16191f;
+  --bg-elevated: #1f232b;
+  --bg-editor: #282c34; /* coincide con el fondo del tema oneDark de CodeMirror */
+  --bg-hover: #2a2f39;
+  --bg-active: #343a46;
+  --bg-stage: #111317;
+  --border: #323844;
+  --text: #e3e6ec;
+  --text-muted: #949bab;
+  --accent: #5b8ff0;
+  --accent-hover: #74a1f3;
+  --accent-text: #0e1420;
+  --accent-soft: #24324d;
+  --danger: #ef6464;
+  --danger-hover: #f37f7f;
+  --warning: #e0a84a;
+  --success: #4fc483;
+  --editor-active-line: #2c313a;
+  --shadow: 0 6px 24px rgb(0 0 0 / 0.5);
+  --device-bezel: #000000;
+}
+
+/* --- Reset mínimo --- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  overflow: hidden; /* la app ocupa exactamente la ventana; cada panel tiene su propio scroll */
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  padding: 1px 4px;
+  background: var(--bg-hover);
+  border-radius: 4px;
+}

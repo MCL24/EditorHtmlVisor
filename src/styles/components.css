@@ -1,0 +1,320 @@
+/*
+ * components.css — Piezas reutilizables: botones, inputs, interruptor,
+ * diálogos, avisos y la tabla de atajos de la ayuda.
+ */
+
+/* --- Iconos ----------------------------------------------------------------- */
+.icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* En el botón de tema se muestra la luna en modo claro y el sol en modo oscuro. */
+:root[data-theme='dark'] .icon--light-only,
+:root:not([data-theme='dark']) .icon--dark-only {
+  display: none;
+}
+
+/* --- Botones ---------------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+.btn:active:not(:disabled) {
+  background: var(--bg-active);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.btn[aria-pressed='true'] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.btn--icon {
+  width: 32px;
+  padding: 0;
+  justify-content: center;
+}
+.btn--text {
+  font-size: 13px;
+  font-weight: 600;
+}
+.btn--small {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.btn--primary {
+  color: var(--accent-text);
+  background: var(--accent);
+}
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn--danger,
+.btn--primary.btn--danger {
+  color: #fff;
+  background: var(--danger);
+}
+.btn--danger:hover:not(:disabled) {
+  background: var(--danger-hover);
+}
+
+/* Botones dentro de diálogos: con borde, para que se vean como botones. */
+.dialog .btn:not(.btn--primary):not(.btn--danger) {
+  border-color: var(--border);
+}
+
+/* --- Tamaño de fuente (A− 14 A+) -------------------------------------------- */
+.font-size {
+  display: inline-flex;
+  align-items: center;
+}
+.font-size__value {
+  min-width: 22px;
+  font-size: 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Campos ----------------------------------------------------------------- */
+.input {
+  height: 28px;
+  padding: 0 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.input--number {
+  width: 72px;
+  font-variant-numeric: tabular-nums;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-block: 12px 4px;
+}
+.field__label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.field .input {
+  height: 36px;
+}
+
+/* --- Interruptor (Auto) ----------------------------------------------------- */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+.switch input {
+  /* Oculto visualmente pero accesible por teclado y lectores de pantalla. */
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.switch__track {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  background: var(--bg-active);
+  border-radius: 9px;
+  transition: background 0.15s;
+}
+.switch__track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  transition: transform 0.15s;
+}
+.switch input:checked + .switch__track {
+  background: var(--accent);
+}
+.switch input:checked + .switch__track::after {
+  transform: translateX(14px);
+}
+.switch input:focus-visible + .switch__track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.switch__label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* --- Diálogos --------------------------------------------------------------- */
+.dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 20px 24px;
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+.dialog--wide {
+  width: min(640px, calc(100vw - 32px));
+}
+.dialog::backdrop {
+  background: rgb(10 14 22 / 0.45);
+}
+.dialog[open] {
+  animation: dialog-in 0.14s ease-out;
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+.dialog__title {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+.dialog h3 {
+  margin: 20px 0 8px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.dialog p {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+.dialog__spacer {
+  flex: 1;
+}
+
+/* --- Ayuda ------------------------------------------------------------------ */
+.help-list {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.6;
+}
+.help-list li + li {
+  margin-top: 4px;
+}
+
+.shortcuts {
+  width: 100%;
+  border-collapse: collapse;
+}
+.shortcuts td {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.shortcuts td:first-child {
+  width: 45%;
+  white-space: nowrap;
+  padding-right: 12px;
+}
+
+/* --- Avisos (toasts) -------------------------------------------------------- */
+.toasts {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--statusbar-height) + 12px);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.toast {
+  padding: 10px 14px;
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  pointer-events: auto;
+  cursor: pointer;
+  animation: toast-in 0.18s ease-out;
+}
+.toast--success {
+  border-left-color: var(--success);
+}
+.toast--error {
+  border-left-color: var(--danger);
+}
+.toast--leaving {
+  animation: toast-out 0.18s ease-in forwards;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

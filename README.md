@@ -1,0 +1,131 @@
+# Editor HTML Visor
+
+Editor de HTML con vista previa en vivo y pantalla dividida. Escribís a la izquierda y ves el resultado a la derecha mientras tipeás.
+
+**Todo funciona en tu navegador.** No hay backend: tu código no se envía a ningún servidor. Se guarda solo en el `localStorage` de tu navegador.
+
+## Requisitos
+
+- Node.js 20 o superior
+- npm
+
+## Uso rápido
+
+```bash
+npm install       # instalar dependencias
+npm run dev       # servidor de desarrollo en http://localhost:5173
+npm run build     # verificar tipos y generar la versión de producción en dist/
+npm run preview   # servir dist/ localmente para probar el build
+```
+
+`dist/` es un sitio estático: se puede publicar en cualquier hosting estático (GitHub Pages, Netlify, un bucket, etc.). Como usa rutas relativas (`base: './'`), también funciona dentro de una subcarpeta.
+
+## Funcionalidades
+
+| Área | Qué hace |
+| --- | --- |
+| **Editor** | CodeMirror 6 con resaltado de HTML + CSS + JS embebido, autocompletado y cierre automático de etiquetas, resaltado de la etiqueta par, plegado, indentación automática, múltiples cursores, ajuste de línea y tamaño de fuente ajustable. |
+| **Vista previa** | Se actualiza sola al escribir (espera ~300 ms). Conserva la posición de scroll entre actualizaciones. Se puede apagar con el interruptor **Auto**. |
+| **Consola** | Muestra `console.log/info/warn/error/debug` y los errores no controlados de tu página, en un panel colapsable bajo el visor. |
+| **Dispositivos** | Escritorio, Tablet (768×1024), Móvil (375×667) y Personalizado. Rotación vertical/horizontal y escala automática si no entra en el panel. |
+| **Archivos** | Importar `.html/.htm/.txt` (máx. 5 MB) con el botón o arrastrando sobre el editor. Exportar como `.html` con nombre editable o copiar al portapapeles. |
+| **Formatear** | Prettier (HTML + CSS + JS). Se descarga recién la primera vez que lo usás. |
+| **Interfaz** | Divisor arrastrable (doble clic = 50/50), tema claro/oscuro, pantalla completa del visor, pestañas en pantallas angostas, ayuda con atajos. |
+| **Persistencia** | Autoguardado del código (~1 s) y de las preferencias: tema, proporción de paneles, dispositivo, auto-actualización, ajuste de línea, tamaño de fuente y estado de la consola. |
+
+## Atajos de teclado
+
+En macOS, `Ctrl` es `⌘` y `Alt` es `⌥`.
+
+| Atajo | Acción |
+| --- | --- |
+| `Ctrl+Enter` | Previsualizar |
+| `Ctrl+S` | Exportar |
+| `Shift+Alt+F` | Formatear |
+| `Ctrl+F` | Buscar y reemplazar |
+| `Ctrl+/` | Comentar / descomentar |
+| `Ctrl+D` | Seleccionar la siguiente coincidencia (múltiples cursores) |
+| `Alt+clic` | Agregar un cursor |
+| `Esc` | Salir de pantalla completa / cerrar ventanas |
+| `Esc`, luego `Tab` | Salir del editor con el teclado |
+
+## Estructura del proyecto
+
+```
+├── index.html                 Estructura de la página (barras, paneles, diálogos, iconos)
+├── public/favicon.svg
+├── vite.config.ts
+├── tsconfig.json
+├── docs/
+│   └── ARQUITECTURA.md        Cómo encajan las piezas, flujo de datos y decisiones
+└── src/
+    ├── main.ts                Punto de entrada: crea los módulos y los conecta
+    ├── config.ts              Valores ajustables (tiempos, límites, dispositivos)
+    ├── settings.ts            Preferencias persistentes
+    ├── storage.ts             Acceso a localStorage que nunca lanza errores
+    ├── shortcuts.ts           Atajos de teclado globales
+    ├── file-io.ts             Importar, exportar, portapapeles, arrastrar y soltar
+    ├── sample.ts              HTML de ejemplo del botón "Muestra"
+    ├── utils.ts               debounce, clamp, byId, etc.
+    ├── editor/
+    │   ├── editor.ts          Configuración de CodeMirror 6
+    │   └── formatter.ts       Prettier con carga diferida
+    ├── preview/
+    │   ├── preview.ts         iframe aislado, render y mensajes
+    │   ├── runtime.ts         Script inyectado en el iframe (consola, errores, scroll)
+    │   ├── console-panel.ts   Panel de consola
+    │   └── devices.ts         Selector de dispositivo y escalado
+    ├── ui/
+    │   ├── splitter.ts        Divisor arrastrable
+    │   ├── dialogs.ts         Confirmación, exportar, ayuda (<dialog> nativo)
+    │   ├── toast.ts           Avisos emergentes
+    │   ├── theme.ts           Tema claro/oscuro
+    │   └── statusbar.ts       Barra de estado
+    └── styles/
+        ├── index.css          Importa los demás
+        ├── base.css           Variables CSS de ambos temas + reset
+        ├── layout.css         Estructura y responsive
+        ├── components.css     Botones, inputs, diálogos, avisos
+        └── preview.css        Visor, marco de dispositivo, consola
+```
+
+Para entender cómo se comunican los módulos, empezá por [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) y después leé [src/main.ts](src/main.ts), que está ordenado por secciones.
+
+## Personalización
+
+Casi todo lo ajustable está en [src/config.ts](src/config.ts):
+
+- `previewDebounceMs`: espera antes de refrescar el visor (por defecto 300 ms).
+- `autosaveDebounceMs`: espera antes de autoguardar (por defecto 1000 ms).
+- `maxImportBytes`: tamaño máximo de importación (5 MB).
+- `minPaneWidthPx`: ancho mínimo de cada panel (200 px).
+- `DEVICE_PRESETS`: dispositivos del selector y sus tamaños.
+
+Los colores están en [src/styles/base.css](src/styles/base.css), como variables CSS para cada tema.
+
+## Seguridad
+
+El código del usuario se ejecuta en un `<iframe>` con:
+
+```
+sandbox="allow-scripts allow-modals allow-forms allow-popups"
+```
+
+**Sin `allow-same-origin`.** Por eso el iframe tiene un origen opaco y su código **no puede**:
+
+- leer ni escribir el `localStorage` de la app (donde está tu código guardado);
+- acceder al DOM de la app (`window.parent.document` lanza un error);
+- leer cookies del sitio.
+
+La comunicación con la app es solo por `postMessage`. La app solo acepta mensajes cuyo `event.source` sea la ventana de su propio iframe.
+
+**Abrir en pestaña nueva** no abre tu HTML directamente (una URL `blob:` tendría el mismo origen que la app). Abre una página contenedora mínima que muestra tu HTML dentro de un iframe con el mismo sandbox.
+
+## Limitaciones conocidas
+
+- **Bucles infinitos.** Si tu código entra en un bucle infinito (`while (true) {}`), la pestaña entera se congela: el iframe sandbox comparte el hilo principal con la app y no hay forma de interrumpir un script síncrono desde afuera. La única protección es el interruptor **Auto**: si lo apagás, el visor no se refresca mientras escribís, así que podés corregir el código y recién después pulsar **Previsualizar**. Si la pestaña ya se congeló, cerrala y volvé a abrir la app: tu código estará restaurado desde el último autoguardado.
+- **Atajos con el foco en el visor.** Si hacés clic dentro de la vista previa, el teclado queda dentro del iframe y los atajos de la app no funcionan (salvo `Esc`, que se reenvía). Hacé clic en el editor para recuperarlos.
+- **Recursos relativos.** Rutas como `<img src="foto.jpg">` o `<link href="estilos.css">` no se resuelven, porque el documento no tiene una ubicación real. Usá URLs absolutas (`https://…`) o recursos embebidos.
+- **APIs que requieren origen.** Dentro del visor no funcionan `localStorage`, `sessionStorage`, `IndexedDB` ni cookies (lanzan errores de seguridad), consecuencia directa de no usar `allow-same-origin`.
+- **Modo privado.** Si el navegador bloquea `localStorage`, la app funciona igual pero sin autoguardado; la barra de estado muestra "Sin autoguardado" y, al cerrar la pestaña con cambios sin exportar, se pide confirmación.
+- **Formateo.** Prettier necesita descargarse la primera vez (requiere conexión si la app no se sirve localmente). Si el HTML tiene errores de sintaxis graves (p. ej. una etiqueta de cierre que no corresponde), se muestra un aviso y el código queda intacto. En cambio, si el error está *dentro* de un `<script>` o `<style>`, Prettier no lo informa: formatea el resto del documento y deja ese bloque como estaba.
