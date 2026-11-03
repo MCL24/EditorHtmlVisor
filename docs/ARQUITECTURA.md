@@ -66,6 +66,14 @@ Para saber qué pasa adentro, `runtime.ts` inyecta un pequeño script **al princ
 
 Todos los mensajes llevan `source: 'ehv-preview'`. `preview.ts` ignora cualquier mensaje cuyo `event.source` no sea la ventana de su iframe.
 
+**En sentido contrario (app → iframe)** hay un solo mensaje: `{ source: 'ehv-app', type: 'print' }`, que usa **Exportar → PDF**. La app no puede llamar a `print()` del iframe directamente, porque tienen orígenes distintos. Por eso se lo pide al runtime, que:
+
+1. verifica que el mensaje venga de `window.parent`;
+2. agrega un `<style>` temporal con `print-color-adjust: exact`, para que se impriman los fondos;
+3. llama a `window.print()`.
+
+Al llamar a `print()` desde dentro del iframe, se imprime solo ese documento, sin la interfaz de la app. Para eso hace falta `allow-modals` en el sandbox. El estilo temporal se quita en `afterprint`. Antes de enviar el mensaje, `Preview.print()` espera el evento `load` del último render, para no imprimir una página a medio cargar.
+
 **Scroll entre actualizaciones.** Cada cambio de `srcdoc` recarga el documento desde cero. La app recuerda el último scroll informado y lo pasa como argumento al próximo runtime, que lo restaura en `DOMContentLoaded` y en `load`.
 
 **Dónde se inserta el runtime.** Después de `<head>`; si no hay, después de `<html>`; si no hay, después del `<!DOCTYPE>`. Nunca antes del doctype, porque eso activaría el "modo quirks" y la vista previa no coincidiría con el archivo exportado.
@@ -153,4 +161,5 @@ Un `ResizeObserver` sobre el escenario recalcula la escala cuando cambia el tama
 
 - **React:** la interfaz es una sola pantalla con estado simple. Vanilla TS con módulos chicos alcanza y evita una capa extra.
 - **Abrir en pestaña nueva con una URL `blob:` directa:** tendría el mismo origen que la app y el código del usuario podría leer su `localStorage`. Se usa una página contenedora con un iframe sandbox.
+- **Generar el PDF con una librería (jsPDF, html2canvas, etc.):** sumaría cientos de kB y el resultado sería una imagen o una aproximación del HTML. El motor de impresión del navegador produce texto seleccionable, respeta `@media print` y no agrega dependencias.
 - **Web Worker para detectar bucles infinitos:** el código del usuario necesita el DOM, así que no puede correr en un worker. Ver "Limitaciones conocidas" en el README.

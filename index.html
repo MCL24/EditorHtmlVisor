@@ -49,6 +49,7 @@
       <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
       <symbol id="i-locate" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></symbol>
       <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/></symbol>
+      <symbol id="i-printer" viewBox="0 0 24 24"><path d="M7 9V3h10v6M7 17H4v-8h16v8h-3M7 14h10v7H7z"/></symbol>
     </defs>
   </svg>
 
@@ -108,7 +109,7 @@
             <svg class="icon"><use href="#i-upload"/></svg><span class="btn__label">Importar</span>
           </button>
           <input type="file" id="file-input" accept=".html,.htm,.txt,text/html,text/plain" hidden>
-          <button class="btn" id="btn-export" title="Exportar como .html (Ctrl+S)">
+          <button class="btn" id="btn-export" title="Exportar como .html o PDF (Ctrl+S)">
             <svg class="icon"><use href="#i-download"/></svg><span class="btn__label">Exportar</span>
           </button>
         </div>
@@ -236,6 +237,9 @@
         <button type="button" class="btn" id="export-copy">
           <svg class="icon"><use href="#i-copy"/></svg>Copiar al portapapeles
         </button>
+        <button type="button" class="btn" id="export-pdf" title="Imprimir solo la vista previa; elegí «Guardar como PDF» como destino">
+          <svg class="icon"><use href="#i-printer"/></svg>PDF (vista previa)
+        </button>
         <span class="dialog__spacer"></span>
         <button type="button" class="btn" data-close>Cancelar</button>
         <button type="submit" class="btn btn--primary" id="export-download">
@@ -256,6 +260,7 @@
       <li>Elegí un dispositivo en la barra del visor para probar diseños responsive; el botón de rotar alterna vertical/horizontal.</li>
       <li>Los <code>console.log</code> y errores de tu página aparecen en la <strong>Consola</strong>, debajo del visor.</li>
       <li><strong>Localizar en el código:</strong> seleccioná texto en la vista previa y el editor resalta el código que lo genera. Se activa o desactiva con el botón de la mira, en la barra del visor.</li>
+      <li><strong>Exportar → PDF (vista previa):</strong> abre el diálogo de impresión con solo lo que muestra el visor, sin el código. Elegí <em>Guardar como PDF</em> como destino.</li>
       <li>Podés <strong>arrastrar un archivo</strong> .html, .htm o .txt sobre el editor para importarlo (máx. 5 MB).</li>
       <li>Tu código se guarda automáticamente en este navegador y <strong>nunca se envía a ningún servidor</strong>.</li>
     </ul>

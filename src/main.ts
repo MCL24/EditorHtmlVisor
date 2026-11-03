@@ -409,6 +409,22 @@ onClick('export-copy', async () => {
 });
 onClick('btn-export', openExportDialog);
 
+/**
+ * Exportar → PDF: abre el diálogo de impresión del navegador con SOLO el
+ * documento del visor (sin el código ni la interfaz). Ahí se elige
+ * "Guardar como PDF". No genera el PDF la app: lo hace el navegador, así que
+ * el resultado respeta los estilos `@media print` del usuario.
+ */
+async function exportPdf(): Promise<void> {
+  exportDialog.close();
+  // Si el visor quedó desactualizado (Auto apagado o un render pendiente),
+  // actualizarlo antes para que el PDF coincida con el código.
+  if (preview.renderedHtml !== editor.getValue()) renderNow();
+  showPane('preview'); // en móvil, el visor debe estar visible
+  await preview.print();
+}
+onClick('export-pdf', () => void exportPdf());
+
 // --- Pantalla completa del visor ---------------------------------------------
 const app = byId('app');
 

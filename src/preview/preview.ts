@@ -6,6 +6,7 @@
  *   - Recordar la posición de scroll entre actualizaciones.
  *   - Recibir los mensajes del runtime y repartirlos (consola, errores, teclas).
  *   - Abrir la vista previa en una pestaña nueva, manteniendo el aislamiento.
+ *   - Imprimir solo el documento del visor (Exportar → PDF).
  *   - "Localizar en el código": anotar el HTML antes de renderizar y traducir
  *     las selecciones del visor a rangos del código (ver source-map.ts).
  *
@@ -15,7 +16,7 @@
  */
 
 import { CONFIG, PREVIEW_SANDBOX } from '../config';
-import { buildRuntimeScript, injectRuntime, isRuntimeMessage, type ConsoleLevel } from './runtime';
+import { APP_MESSAGE_SOURCE, buildRuntimeScript, injectRuntime, isRuntimeMessage, type ConsoleLevel } from './runtime';
 import { annotateSource, locateSelection, type SourceRange, type SourceSnapshot } from './source-map';
 
 export interface PreviewCallbacks {
@@ -45,6 +46,8 @@ export class Preview {
   /** Árbol sintáctico del último render anotado; `null` si no se anotó. */
   private snapshot: SourceSnapshot | null = null;
   private hasRendered = false;
+  /** Se resuelve cuando el iframe terminó de cargar el último render. */
+  private loaded: Promise<void> = Promise.resolve();
 
   constructor(iframe: HTMLIFrameElement, callbacks: PreviewCallbacks) {
     this.iframe = iframe;
@@ -71,7 +74,27 @@ export class Preview {
     }
 
     const script = buildRuntimeScript(this.scrollX, this.scrollY);
+    // Se registra antes de cambiar srcdoc para no perder el evento.
+    this.loaded = new Promise((resolve) => this.iframe.addEventListener('load', () => resolve(), { once: true }));
     this.iframe.srcdoc = injectRuntime(html, script);
+  }
+
+  /** HTML (sin anotar) del último render; sirve para saber si el visor está al día. */
+  get renderedHtml(): string {
+    return this.lastHtml;
+  }
+
+  /**
+   * Abre el diálogo de impresión del navegador con SOLO el contenido del visor.
+   * Desde ahí el usuario elige "Guardar como PDF".
+   *
+   * La app no puede llamar a print() del iframe directamente (tiene otro origen),
+   * así que se lo pide al runtime por postMessage. Si hay un render en curso,
+   * se espera a que termine de cargar para no imprimir una página a medias.
+   */
+  async print(): Promise<void> {
+    await this.loaded;
+    this.iframe.contentWindow?.postMessage({ source: APP_MESSAGE_SOURCE, type: 'print' }, '*');
   }
 
   /** Activa o desactiva "Localizar en el código". Vuelve a renderizar para aplicar el cambio. */

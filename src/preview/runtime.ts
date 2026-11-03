@@ -12,6 +12,9 @@
  *     { source: 'ehv-preview', type: 'key', key }                teclas que la app necesita (Esc)
  *     { source: 'ehv-preview', type: 'selection', start, end }   texto seleccionado (ver source-map.ts)
  *
+ *   app → iframe
+ *     { source: 'ehv-app', type: 'print' }   imprimir solo el documento del visor (Exportar → PDF)
+ *
  * La posición de scroll a restaurar se pasa como argumento al crear el script,
  * porque cada actualización de `srcdoc` recarga el documento desde cero.
  *
@@ -24,6 +27,9 @@ import { SOURCE_ATTRIBUTE } from './source-map';
 
 /** Marca que identifica los mensajes enviados por el runtime. */
 export const RUNTIME_MESSAGE_SOURCE = 'ehv-preview';
+
+/** Marca que identifica los mensajes que la app envía al runtime. */
+export const APP_MESSAGE_SOURCE = 'ehv-app';
 
 export type ConsoleLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
 
@@ -73,8 +79,15 @@ export function isRuntimeMessage(data: unknown): data is RuntimeMessage {
  * @param restoreX   scroll horizontal a restaurar al cargar.
  * @param restoreY   scroll vertical a restaurar al cargar.
  * @param sourceAttr nombre del atributo con la posición en el código (`data-ehv-src`).
+ * @param appTag     valor de `APP_MESSAGE_SOURCE` (mensajes que llegan desde la app).
  */
-function previewRuntime(sourceTag: string, restoreX: number, restoreY: number, sourceAttr: string): void {
+function previewRuntime(
+  sourceTag: string,
+  restoreX: number,
+  restoreY: number,
+  sourceAttr: string,
+  appTag: string,
+): void {
   const MAX_LENGTH = 2000; // recorta textos enormes para no saturar el panel de consola
 
   const send = (payload: Record<string, unknown>) => {
@@ -248,6 +261,25 @@ function previewRuntime(sourceTag: string, restoreX: number, restoreY: number, s
       });
     }, 150);
   });
+
+  // --- Imprimir (Exportar → PDF) ----------------------------------------------
+  // Llamar a print() desde DENTRO del iframe imprime solo este documento, sin
+  // la interfaz de la app. Requiere `allow-modals` en el sandbox.
+  window.addEventListener('message', (event) => {
+    if (event.source !== window.parent) return; // solo la app puede pedirlo
+    const data = event.data as { source?: unknown; type?: unknown } | null;
+    if (!data || data.source !== appTag || data.type !== 'print') return;
+
+    // Por defecto los navegadores no imprimen colores ni imágenes de fondo.
+    // Se les pide que los respeten, para que el PDF se vea como el visor. Como
+    // la propiedad se hereda, cualquier regla propia del usuario tiene prioridad.
+    const style = document.createElement('style');
+    style.textContent = 'html{-webkit-print-color-adjust:exact;print-color-adjust:exact}';
+    (document.head || document.documentElement).appendChild(style);
+    window.addEventListener('afterprint', () => style.remove(), { once: true });
+
+    window.print();
+  });
 }
 
 /**
@@ -259,6 +291,7 @@ export function buildRuntimeScript(scrollX: number, scrollY: number): string {
     Math.round(scrollX),
     Math.round(scrollY),
     JSON.stringify(SOURCE_ATTRIBUTE),
+    JSON.stringify(APP_MESSAGE_SOURCE),
   ].join(',');
   // El atributo data-* permite reconocer (y si hiciera falta, ignorar) este script desde el documento.
   return `<script data-ehv-runtime>(${previewRuntime.toString()})(${args});</script>`;

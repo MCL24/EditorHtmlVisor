@@ -38,6 +38,7 @@ Requisito, una sola vez: en GitHub, **Settings → Pages → Build and deploymen
 | **Consola** | Muestra `console.log/info/warn/error/debug` y los errores no controlados de tu página, en un panel colapsable bajo el visor. |
 | **Dispositivos** | Escritorio, Tablet (768×1024), Móvil (375×667) y Personalizado. Rotación vertical/horizontal y escala automática si no entra en el panel. |
 | **Archivos** | Importar `.html/.htm/.txt` (máx. 5 MB) con el botón o arrastrando sobre el editor. Exportar como `.html` con nombre editable o copiar al portapapeles. |
+| **PDF** | En **Exportar → PDF (vista previa)** se abre el diálogo de impresión del navegador con *solo* el contenido del visor, sin el código ni la interfaz. Como destino, elegí **Guardar como PDF**. |
 | **Formatear** | Prettier (HTML + CSS + JS). Se descarga recién la primera vez que lo usás. |
 | **Interfaz** | Divisor arrastrable (doble clic = 50/50), tema claro/oscuro, pantalla completa del visor, pestañas en pantallas angostas, ayuda con atajos. |
 | **Persistencia** | Autoguardado del código (~1 s) y de las preferencias: tema, proporción de paneles, dispositivo, auto-actualización, ajuste de línea, tamaño de fuente y estado de la consola. |
@@ -146,4 +147,10 @@ La comunicación con la app es solo por `postMessage`. La app solo acepta mensaj
   - El texto que genera JavaScript no existe en el código: en ese caso se resalta el elemento que lo contiene.
   - Si apagaste **Auto** y editaste después de la última vista previa, las posiciones ya no coinciden: la app avisa y pide pulsar **Previsualizar**.
   - Por encima de `sourceMapMaxChars` la función se desactiva sola, para no volver lenta la escritura.
+- **PDF.**
+  - El PDF lo genera el navegador al imprimir, no la app. Por eso respeta tus estilos `@media print` y los saltos de página (`break-before`, `break-inside`, etc.).
+  - El contenido se reacomoda al ancho del papel, sin importar el dispositivo que elegiste en el visor.
+  - Los colores y las imágenes de fondo se imprimen tal como se ven. Si no los querés, en tu CSS poné `html { print-color-adjust: economy; }`.
+  - El nombre del archivo lo propone el navegador, y suele ser el título de la app. Podés cambiarlo en la ventana de guardado.
+  - Si el visor estaba desactualizado (con **Auto** apagado), se actualiza antes de imprimir. Esto reinicia los scripts de la página, así que se pierde cualquier estado que tuviera, por ejemplo un contador.
 - **Formateo.** Prettier necesita descargarse la primera vez (requiere conexión si la app no se sirve localmente). Si el HTML tiene errores de sintaxis graves (p. ej. una etiqueta de cierre que no corresponde), se muestra un aviso y el código queda intacto. En cambio, si el error está *dentro* de un `<script>` o `<style>`, Prettier no lo informa: formatea el resto del documento y deja ese bloque como estaba.
