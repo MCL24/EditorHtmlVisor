@@ -12,6 +12,9 @@
  *   - `html()` (`@codemirror/lang-html`): resaltado de HTML con CSS y JS embebidos,
  *     autocompletado de etiquetas/atributos y cierre automático de etiquetas.
  *
+ * "Localizar en el código" usa un resaltado propio (`highlightField`): una
+ * decoración que marca un rango sin mover el cursor ni quitarle el foco al visor.
+ *
  * Las opciones que cambian en tiempo de ejecución (tema, tamaño de fuente,
  * ajuste de línea) viven en "compartimentos" (`Compartment`), que permiten
  * reconfigurarlas sin recrear el editor.
@@ -19,8 +22,8 @@
 
 import { basicSetup } from 'codemirror';
 import { html } from '@codemirror/lang-html';
-import { Compartment, EditorState, type Extension } from '@codemirror/state';
-import { EditorView, keymap } from '@codemirror/view';
+import { Compartment, EditorState, StateEffect, StateField, type Extension } from '@codemirror/state';
+import { Decoration, EditorView, keymap, type DecorationSet } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
 import { foldAll, unfoldAll } from '@codemirror/language';
 import { openSearchPanel } from '@codemirror/search';
@@ -51,7 +54,37 @@ export interface HtmlEditor {
   unfoldAll(): void;
   openSearch(): void;
   focus(): void;
+  /** Resalta un rango (Localizar en el código) y desplaza el editor hasta él. */
+  highlightRange(from: number, to: number): void;
+  /** Quita el resaltado de "Localizar en el código". */
+  clearHighlight(): void;
 }
+
+// --- Resaltado de "Localizar en el código" -----------------------------------
+
+/** Efecto que fija (rango) o quita (`null`) el resaltado. */
+const setHighlight = StateEffect.define<{ from: number; to: number } | null>();
+
+/** Marca visual; el estilo de `.cm-source-highlight` está en styles/layout.css. */
+const highlightMark = Decoration.mark({ class: 'cm-source-highlight' });
+
+/**
+ * Guarda el resaltado actual. Se borra al editar el documento: a partir de ese
+ * momento el visor muestra otra versión y el resaltado ya no le corresponde.
+ */
+const highlightField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(highlight, transaction) {
+    if (transaction.docChanged) highlight = Decoration.none;
+    for (const effect of transaction.effects) {
+      if (effect.is(setHighlight)) {
+        highlight = effect.value ? Decoration.set([highlightMark.range(effect.value.from, effect.value.to)]) : Decoration.none;
+      }
+    }
+    return highlight;
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
 
 /** Tema base: ocupa todo el alto del panel y usa la tipografía monoespaciada de la app. */
 const layoutTheme = EditorView.theme({
@@ -112,6 +145,7 @@ export function createEditor(options: EditorOptions): HtmlEditor {
         // con el teclado (comportamiento estándar de CodeMirror para accesibilidad).
         keymap.of([indentWithTab]),
         layoutTheme,
+        highlightField,
         themeSlot.of(themeExtension(options.theme)),
         fontSlot.of(fontSizeExtension(options.fontSize)),
         wrapSlot.of(wrapExtension(options.wordWrap)),
@@ -146,5 +180,15 @@ export function createEditor(options: EditorOptions): HtmlEditor {
       openSearchPanel(view);
     },
     focus: () => view.focus(),
+    highlightRange(from, to) {
+      const length = view.state.doc.length;
+      const start = Math.max(0, Math.min(from, length));
+      const end = Math.max(start, Math.min(to, length));
+      if (end === start) return; // un rango vacío no se vería
+      view.dispatch({
+        effects: [setHighlight.of({ from: start, to: end }), EditorView.scrollIntoView(start, { y: 'center' })],
+      });
+    },
+    clearHighlight: () => view.dispatch({ effects: setHighlight.of(null) }),
   };
 }

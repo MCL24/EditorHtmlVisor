@@ -27,6 +27,8 @@ export interface Settings {
   fontSize: number;
   /** Panel de consola desplegado. */
   consoleOpen: boolean;
+  /** "Localizar en el código": seleccionar texto en el visor resalta su código. */
+  locateSource: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -40,6 +42,7 @@ export const DEFAULT_SETTINGS: Settings = {
   wordWrap: false,
   fontSize: CONFIG.fontSize.default,
   consoleOpen: false,
+  locateSource: true,
 };
 
 /**

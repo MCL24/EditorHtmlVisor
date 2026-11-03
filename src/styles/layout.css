@@ -135,6 +135,19 @@
   display: flex;
 }
 
+/* --- Resaltado de "Localizar en el código" (ver editor/editor.ts) ------------ */
+/* Aparece con un destello fuerte y queda en un tono suave mientras siga la selección. */
+.cm-source-highlight {
+  background-color: var(--source-highlight);
+  border-radius: 2px;
+  animation: source-highlight-in 1.2s ease-out;
+}
+@keyframes source-highlight-in {
+  from {
+    background-color: var(--source-highlight-flash);
+  }
+}
+
 /* --- Divisor ---------------------------------------------------------------- */
 .splitter {
   flex: 0 0 var(--splitter-width);

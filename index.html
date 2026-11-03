@@ -47,6 +47,7 @@
       <symbol id="i-rotate" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M3 12a9 9 0 0 0 4 7.5M21 12a9 9 0 0 0-4-7.5"/></symbol>
       <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6m0-6-9 9M18 14v6H4V6h6"/></symbol>
       <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="i-locate" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></symbol>
       <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/></symbol>
     </defs>
   </svg>
@@ -160,6 +161,11 @@
           </button>
           <span class="preview-bar__dims" id="device-dims" title="Dimensiones del visor"></span>
           <span class="preview-bar__spacer"></span>
+          <button class="btn btn--icon" id="btn-locate" aria-pressed="true"
+                  title="Localizar en el código: al seleccionar texto en la vista previa, se resalta el código que lo genera"
+                  aria-label="Localizar en el código">
+            <svg class="icon"><use href="#i-locate"/></svg>
+          </button>
           <button class="btn btn--icon" id="btn-reload" title="Recargar vista previa" aria-label="Recargar vista previa">
             <svg class="icon"><use href="#i-refresh"/></svg>
           </button>
@@ -249,6 +255,7 @@
       <li>Arrastrá el divisor central para cambiar el tamaño de los paneles. Doble clic lo vuelve a 50/50.</li>
       <li>Elegí un dispositivo en la barra del visor para probar diseños responsive; el botón de rotar alterna vertical/horizontal.</li>
       <li>Los <code>console.log</code> y errores de tu página aparecen en la <strong>Consola</strong>, debajo del visor.</li>
+      <li><strong>Localizar en el código:</strong> seleccioná texto en la vista previa y el editor resalta el código que lo genera. Se activa o desactiva con el botón de la mira, en la barra del visor.</li>
       <li>Podés <strong>arrastrar un archivo</strong> .html, .htm o .txt sobre el editor para importarlo (máx. 5 MB).</li>
       <li>Tu código se guarda automáticamente en este navegador y <strong>nunca se envía a ningún servidor</strong>.</li>
     </ul>

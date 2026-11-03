@@ -10,6 +10,7 @@
  *     { source: 'ehv-preview', type: 'error', message, location } window.onerror y promesas rechazadas
  *     { source: 'ehv-preview', type: 'scroll', x, y }            posición de scroll actual
  *     { source: 'ehv-preview', type: 'key', key }                teclas que la app necesita (Esc)
+ *     { source: 'ehv-preview', type: 'selection', start, end }   texto seleccionado (ver source-map.ts)
  *
  * La posición de scroll a restaurar se pasa como argumento al crear el script,
  * porque cada actualización de `srcdoc` recarga el documento desde cero.
@@ -18,6 +19,8 @@
  * y se ejecuta en otro documento. Por eso debe ser AUTOCONTENIDA: no puede usar
  * imports, variables ni funciones definidas fuera de ella.
  */
+
+import { SOURCE_ATTRIBUTE } from './source-map';
 
 /** Marca que identifica los mensajes enviados por el runtime. */
 export const RUNTIME_MESSAGE_SOURCE = 'ehv-preview';
@@ -28,7 +31,31 @@ export type RuntimeMessage =
   | { source: typeof RUNTIME_MESSAGE_SOURCE; type: 'console'; level: ConsoleLevel; args: string[] }
   | { source: typeof RUNTIME_MESSAGE_SOURCE; type: 'error'; message: string; location: string }
   | { source: typeof RUNTIME_MESSAGE_SOURCE; type: 'scroll'; x: number; y: number }
-  | { source: typeof RUNTIME_MESSAGE_SOURCE; type: 'key'; key: string };
+  | { source: typeof RUNTIME_MESSAGE_SOURCE; type: 'key'; key: string }
+  | {
+      source: typeof RUNTIME_MESSAGE_SOURCE;
+      type: 'selection';
+      /** Ambos `null` cuando la selección se vació. */
+      start: SelectionEndpoint | null;
+      end: SelectionEndpoint | null;
+    };
+
+/**
+ * Descripción de un extremo de la selección del visor, lo bastante precisa
+ * para encontrarlo en el código fuente (ver preview/source-map.ts).
+ */
+export interface SelectionEndpoint {
+  /** Valor de `data-ehv-src` del elemento anotado más cercano (posición de su `<` en el código). */
+  src: number;
+  /** Índice del hueco de texto dentro de ese elemento, o -1 si no se pudo determinar. */
+  gap: number;
+  /** Texto seleccionado dentro del nodo de texto (vacío si el extremo cae en un borde de elemento). */
+  text: string;
+  /** Cantidad de caracteres del nodo de texto antes de `text` (para elegir entre textos repetidos). */
+  before: number;
+  /** Si no hay texto: usar el inicio o el final del elemento. */
+  edge: 'start' | 'end';
+}
 
 /** Comprueba que un dato recibido por `message` tiene la forma de un mensaje del runtime. */
 export function isRuntimeMessage(data: unknown): data is RuntimeMessage {
@@ -45,8 +72,9 @@ export function isRuntimeMessage(data: unknown): data is RuntimeMessage {
  * @param sourceTag  valor de `RUNTIME_MESSAGE_SOURCE` (se pasa porque no puede importarse).
  * @param restoreX   scroll horizontal a restaurar al cargar.
  * @param restoreY   scroll vertical a restaurar al cargar.
+ * @param sourceAttr nombre del atributo con la posición en el código (`data-ehv-src`).
  */
-function previewRuntime(sourceTag: string, restoreX: number, restoreY: number): void {
+function previewRuntime(sourceTag: string, restoreX: number, restoreY: number, sourceAttr: string): void {
   const MAX_LENGTH = 2000; // recorta textos enormes para no saturar el panel de consola
 
   const send = (payload: Record<string, unknown>) => {
@@ -140,13 +168,98 @@ function previewRuntime(sourceTag: string, restoreX: number, restoreY: number): 
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') send({ type: 'key', key: 'Escape' });
   });
+
+  // --- Selección (Localizar en el código) -------------------------------------
+  // Cada extremo de la selección se describe con el elemento anotado que lo
+  // contiene y el texto seleccionado. La app lo traduce a una posición del código.
+  const MAX_SELECTION_TEXT = 300; // basta para ubicar el texto sin enviar páginas enteras
+
+  /** Índice del hueco de texto donde está `node` (cuántos elementos/comentarios hermanos lo preceden). */
+  const gapIndex = (node: Node): number => {
+    let index = 0;
+    for (let sibling = node.previousSibling; sibling; sibling = sibling.previousSibling) {
+      if (sibling.nodeType === Node.ELEMENT_NODE || sibling.nodeType === Node.COMMENT_NODE) index += 1;
+    }
+    return index;
+  };
+
+  const describeEndpoint = (container: Node, offset: number, side: 'start' | 'end') => {
+    let node: Node = container;
+    let text = '';
+    let before = 0;
+    let edge: 'start' | 'end' = side;
+
+    if (container.nodeType === Node.TEXT_NODE) {
+      // Caso habitual: el extremo está dentro de un texto.
+      const data = (container as Text).data;
+      const from = side === 'start' ? offset : Math.max(0, offset - MAX_SELECTION_TEXT);
+      const to = side === 'start' ? Math.min(data.length, offset + MAX_SELECTION_TEXT) : offset;
+      text = data.slice(from, to);
+      before = from;
+    } else {
+      // El extremo está entre dos hijos de un elemento: tomar el hijo vecino.
+      const child = side === 'start' ? container.childNodes[offset] : container.childNodes[offset - 1];
+      if (child) {
+        node = child;
+        if (child.nodeType === Node.TEXT_NODE) {
+          const data = (child as Text).data;
+          text = side === 'start' ? data.slice(0, MAX_SELECTION_TEXT) : data.slice(-MAX_SELECTION_TEXT);
+          before = side === 'start' ? 0 : Math.max(0, data.length - MAX_SELECTION_TEXT);
+        }
+      } else {
+        // Sin hijo vecino: el extremo está al principio o al final del contenedor.
+        edge = side === 'start' ? 'end' : 'start';
+      }
+    }
+
+    const isText = node.nodeType === Node.TEXT_NODE;
+    const owner = isText ? node.parentElement : (node as Element);
+    const annotated = owner?.closest?.('[' + sourceAttr + ']');
+    if (!annotated) return null;
+
+    return {
+      src: Number(annotated.getAttribute(sourceAttr)),
+      // El hueco solo tiene sentido si el texto es hijo directo del elemento anotado.
+      gap: isText && node.parentElement === annotated ? gapIndex(node) : -1,
+      text: isText ? text : '',
+      before,
+      edge,
+    };
+  };
+
+  let selectionTimer = 0;
+  let hadSelection = false;
+  document.addEventListener('selectionchange', () => {
+    // Esperar a que el usuario termine de arrastrar antes de informar.
+    clearTimeout(selectionTimer);
+    selectionTimer = window.setTimeout(() => {
+      const selection = document.getSelection();
+      if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+        if (hadSelection) send({ type: 'selection', start: null, end: null });
+        hadSelection = false;
+        return;
+      }
+      const range = selection.getRangeAt(0);
+      hadSelection = true;
+      send({
+        type: 'selection',
+        start: describeEndpoint(range.startContainer, range.startOffset, 'start'),
+        end: describeEndpoint(range.endContainer, range.endOffset, 'end'),
+      });
+    }, 150);
+  });
 }
 
 /**
  * Devuelve la etiqueta `<script>` lista para insertar en el documento del usuario.
  */
 export function buildRuntimeScript(scrollX: number, scrollY: number): string {
-  const args = [JSON.stringify(RUNTIME_MESSAGE_SOURCE), Math.round(scrollX), Math.round(scrollY)].join(',');
+  const args = [
+    JSON.stringify(RUNTIME_MESSAGE_SOURCE),
+    Math.round(scrollX),
+    Math.round(scrollY),
+    JSON.stringify(SOURCE_ATTRIBUTE),
+  ].join(',');
   // El atributo data-* permite reconocer (y si hiciera falta, ignorar) este script desde el documento.
   return `<script data-ehv-runtime>(${previewRuntime.toString()})(${args});</script>`;
 }

@@ -33,6 +33,12 @@ export const CONFIG = {
   /** Nombre de archivo sugerido al exportar. */
   defaultExportName: 'index.html',
 
+  /**
+   * "Localizar en el código" solo se aplica a documentos de hasta este tamaño
+   * (en caracteres). Por encima, analizar el HTML en cada actualización se nota.
+   */
+  sourceMapMaxChars: 1_000_000,
+
   /** Duración por defecto (ms) de los avisos emergentes. */
   toastDurationMs: 3500,
 } as const;

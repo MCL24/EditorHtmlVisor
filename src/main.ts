@@ -109,11 +109,15 @@ const consolePanel = new ConsolePanel(
 );
 
 const preview = new Preview(byId<HTMLIFrameElement>('preview-frame'), {
-  onBeforeRender: () => consolePanel.clear(),
+  onBeforeRender: () => {
+    consolePanel.clear();
+    staleNoticeShown = false;
+  },
   onConsole: (level, text) => consolePanel.add(level, text),
   onKey: (key) => {
     if (key === 'Escape') setFullscreen(false);
   },
+  onSourceSelection: (range, renderedSource) => handleSourceSelection(range, renderedSource),
 });
 
 // =============================================================================
@@ -162,6 +166,40 @@ autoToggle.addEventListener('change', () => {
   if (autoToggle.checked) renderNow();
   else scheduleRender.cancel();
 });
+
+// --- Localizar en el código --------------------------------------------------
+// Al seleccionar texto en el visor, se resalta en el editor el código que lo genera.
+
+const locateButton = byId('btn-locate');
+/** Evita repetir el aviso de "código desactualizado" en cada selección. */
+let staleNoticeShown = false;
+
+function setLocateSource(enabled: boolean): void {
+  updateSettings({ locateSource: enabled });
+  locateButton.setAttribute('aria-pressed', String(enabled));
+  preview.setLocateEnabled(enabled);
+  if (!enabled) editor.clearHighlight();
+}
+
+function handleSourceSelection(range: { from: number; to: number } | null, renderedSource: string): void {
+  if (!range) {
+    editor.clearHighlight();
+    return;
+  }
+  // Las posiciones son las del código que se renderizó. Si después se editó
+  // (con Auto apagado), ya no apuntan al lugar correcto.
+  if (renderedSource !== editor.getValue()) {
+    if (!staleNoticeShown) {
+      showToast('El código cambió desde la última vista previa. Pulsá Previsualizar para poder localizarlo.');
+      staleNoticeShown = true;
+    }
+    return;
+  }
+  editor.highlightRange(range.from, range.to);
+}
+
+locateButton.addEventListener('click', () => setLocateSource(!settings.locateSource));
+setLocateSource(settings.locateSource);
 
 // =============================================================================
 // 6. Autoguardado y aviso al salir

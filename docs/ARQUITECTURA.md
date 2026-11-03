@@ -21,9 +21,9 @@ Este documento explica cómo se organiza el código y cómo viajan los datos ent
  editor/        preview/       ui/          file-io.ts     shortcuts.ts
  editor.ts      preview.ts     splitter.ts
  formatter.ts   runtime.ts     dialogs.ts
-                console-panel  toast.ts
+                source-map.ts  toast.ts
+                console-panel  statusbar.ts
                 devices.ts     theme.ts
-                               statusbar.ts
      └──────────────┴───────────┴──────────────┘
                           │
               config.ts · settings.ts · storage.ts · utils.ts
@@ -62,6 +62,7 @@ Para saber qué pasa adentro, `runtime.ts` inyecta un pequeño script **al princ
 | Escucha `error` y `unhandledrejection` | `{ type: 'error', message, location }` |
 | Informa el scroll (una vez por cuadro) | `{ type: 'scroll', x, y }` |
 | Reenvía Esc | `{ type: 'key', key: 'Escape' }` |
+| Describe la selección de texto | `{ type: 'selection', start, end }` |
 
 Todos los mensajes llevan `source: 'ehv-preview'`. `preview.ts` ignora cualquier mensaje cuyo `event.source` no sea la ventana de su iframe.
 
@@ -70,6 +71,34 @@ Todos los mensajes llevan `source: 'ehv-preview'`. `preview.ts` ignora cualquier
 **Dónde se inserta el runtime.** Después de `<head>`; si no hay, después de `<html>`; si no hay, después del `<!DOCTYPE>`. Nunca antes del doctype, porque eso activaría el "modo quirks" y la vista previa no coincidiría con el archivo exportado.
 
 **Por qué `toString()`.** La función `previewRuntime` se escribe en TypeScript (con tipos y verificación) y se convierte a texto con `Function.prototype.toString()`. Por eso debe ser autocontenida: no puede usar nada definido fuera de ella.
+
+## Localizar en el código
+
+Al seleccionar texto en el visor, el editor resalta el código que lo genera. La lógica está en `preview/source-map.ts` y funciona en dos pasos.
+
+**1. Anotar (en cada render).** El HTML se analiza con `@lezer/html`, el mismo parser que usa CodeMirror. En la copia que va al iframe se agrega a cada etiqueta de apertura la posición de su `<` en el código original:
+
+```
+<p class="a">Hola</p>   →   <p data-ehv-src="0" class="a">Hola</p>
+```
+
+El árbol sintáctico se guarda como "instantánea" (`SourceSnapshot`) junto con el código renderizado.
+
+**2. Localizar (al seleccionar).** El runtime escucha `selectionchange` (espera 150 ms a que termine el arrastre) y describe cada extremo de la selección con un `SelectionEndpoint`:
+
+| Campo | Significado |
+| --- | --- |
+| `src` | `data-ehv-src` del elemento anotado más cercano |
+| `gap` | Hueco de texto dentro de ese elemento (cuántos elementos o comentarios hermanos lo preceden) |
+| `text` | Texto seleccionado dentro del nodo (hasta 300 caracteres) |
+| `before` | Caracteres del nodo antes de `text`, para desempatar textos repetidos |
+| `edge` | Si el extremo cae en un borde de elemento: su inicio o su final |
+
+En la app, `locateSelection()` busca el elemento por posición en el árbol y el texto dentro del hueco indicado. La búsqueda tolera saltos de línea y espacios múltiples, y entidades como `&amp;`, `&lt;` o `&nbsp;`. Si hay varias coincidencias, elige la más cercana a `before`. Si no encuentra el texto (por ejemplo, porque lo generó JavaScript), usa el elemento entero.
+
+**Resaltado.** `editor.ts` usa un `StateField` con una decoración (`.cm-source-highlight`), no la selección del editor. Así no mueve el cursor ni le quita el foco al visor. El resaltado se borra al editar, porque a partir de ese momento el visor muestra otra versión.
+
+**Código desactualizado.** Si el código del editor ya no es el que se renderizó (con Auto apagado), `main.ts` no resalta nada y muestra un aviso.
 
 ## Selector de dispositivos
 
@@ -83,6 +112,10 @@ Todos los mensajes llevan `source: 'ehv-preview'`. `preview.ts` ignora cualquier
 ```
 
 Un `ResizeObserver` sobre el escenario recalcula la escala cuando cambia el tamaño del panel (por el divisor, la ventana o la consola).
+
+## Publicación
+
+`.github/workflows/deploy.yml` compila y publica `dist/` en GitHub Pages en cada push a `main`. Funciona gracias a `base: './'` en `vite.config.ts`, que hace que todas las rutas sean relativas y el sitio funcione dentro de `/EditorHtmlVisor/`.
 
 ## Persistencia
 

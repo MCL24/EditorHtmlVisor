@@ -45,6 +45,8 @@
   --editor-active-line: #f2f5fb;
   --shadow: 0 6px 24px rgb(15 23 42 / 0.14);
   --device-bezel: #1d2433;
+  --source-highlight: rgb(255 196 0 / 0.32);
+  --source-highlight-flash: rgb(255 170 0 / 0.75);
 }
 
 /* Tema oscuro. */
@@ -69,6 +71,8 @@
   --editor-active-line: #2c313a;
   --shadow: 0 6px 24px rgb(0 0 0 / 0.5);
   --device-bezel: #000000;
+  --source-highlight: rgb(255 196 0 / 0.22);
+  --source-highlight-flash: rgb(255 196 0 / 0.6);
 }
 
 /* --- Reset mínimo --- */

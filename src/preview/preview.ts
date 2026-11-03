@@ -6,14 +6,17 @@
  *   - Recordar la posición de scroll entre actualizaciones.
  *   - Recibir los mensajes del runtime y repartirlos (consola, errores, teclas).
  *   - Abrir la vista previa en una pestaña nueva, manteniendo el aislamiento.
+ *   - "Localizar en el código": anotar el HTML antes de renderizar y traducir
+ *     las selecciones del visor a rangos del código (ver source-map.ts).
  *
  * Seguridad: el iframe usa `sandbox` SIN `allow-same-origin` (ver PREVIEW_SANDBOX
  * en config.ts). Además, solo se aceptan mensajes cuyo `event.source` sea la
  * ventana de NUESTRO iframe, así ninguna otra ventana puede hacerse pasar por él.
  */
 
-import { PREVIEW_SANDBOX } from '../config';
+import { CONFIG, PREVIEW_SANDBOX } from '../config';
 import { buildRuntimeScript, injectRuntime, isRuntimeMessage, type ConsoleLevel } from './runtime';
+import { annotateSource, locateSelection, type SourceRange, type SourceSnapshot } from './source-map';
 
 export interface PreviewCallbacks {
   /** Mensaje de consola o error no controlado emitido por el código del usuario. */
@@ -22,6 +25,12 @@ export interface PreviewCallbacks {
   onBeforeRender: () => void;
   /** Tecla reenviada desde dentro del iframe (por ahora solo Escape). */
   onKey: (key: string) => void;
+  /**
+   * Cambió la selección de texto en el visor (solo con "Localizar en el código" activo).
+   * @param range           rango del código que la produce, o `null` si se deseleccionó o no se pudo ubicar.
+   * @param renderedSource  código con el que se renderizó; si ya no coincide con el editor, el rango no es válido.
+   */
+  onSourceSelection: (range: SourceRange | null, renderedSource: string) => void;
 }
 
 export class Preview {
@@ -31,6 +40,11 @@ export class Preview {
   private scrollY = 0;
   /** Último HTML renderizado (sin runtime), para "Recargar" y "Abrir en pestaña nueva". */
   private lastHtml = '';
+  /** Si está activo, el HTML se anota para poder localizar selecciones. */
+  private locateEnabled = false;
+  /** Árbol sintáctico del último render anotado; `null` si no se anotó. */
+  private snapshot: SourceSnapshot | null = null;
+  private hasRendered = false;
 
   constructor(iframe: HTMLIFrameElement, callbacks: PreviewCallbacks) {
     this.iframe = iframe;
@@ -43,9 +57,29 @@ export class Preview {
   /** Renderiza el HTML indicado, conservando la posición de scroll actual. */
   render(userHtml: string): void {
     this.lastHtml = userHtml;
+    this.hasRendered = true;
     this.callbacks.onBeforeRender();
+
+    // Anotar solo si la función está activa y el documento no es enorme
+    // (analizar varios MB en cada tecla haría lenta la escritura).
+    let html = userHtml;
+    this.snapshot = null;
+    if (this.locateEnabled && userHtml.length <= CONFIG.sourceMapMaxChars) {
+      const annotated = annotateSource(userHtml);
+      html = annotated.html;
+      this.snapshot = annotated.snapshot;
+    }
+
     const script = buildRuntimeScript(this.scrollX, this.scrollY);
-    this.iframe.srcdoc = injectRuntime(userHtml, script);
+    this.iframe.srcdoc = injectRuntime(html, script);
+  }
+
+  /** Activa o desactiva "Localizar en el código". Vuelve a renderizar para aplicar el cambio. */
+  setLocateEnabled(enabled: boolean): void {
+    if (this.locateEnabled === enabled) return;
+    this.locateEnabled = enabled;
+    // Antes del primer render no hay nada que actualizar.
+    if (this.hasRendered) this.reload();
   }
 
   /** Vuelve a renderizar el último HTML (reinicia scripts y estado del documento). */
@@ -100,6 +134,13 @@ export class Preview {
       case 'key':
         this.callbacks.onKey(data.key);
         break;
+      case 'selection': {
+        if (!this.locateEnabled) return;
+        const range =
+          this.snapshot && data.start && data.end ? locateSelection(this.snapshot, data.start, data.end) : null;
+        this.callbacks.onSourceSelection(range, this.snapshot?.source ?? this.lastHtml);
+        break;
+      }
     }
   };
 }
