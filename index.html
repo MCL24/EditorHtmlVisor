@@ -49,6 +49,9 @@
       <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
       <symbol id="i-locate" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></symbol>
       <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6h6l2 2h10v11H3z"/></symbol>
+      <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6"/></symbol>
+      <symbol id="i-save-as" viewBox="0 0 24 24"><path d="M12 20H5V4h11l3 3v4M8 4v5h7V4M8 20v-6h4M14 21l1-3 5-5 2 2-5 5z"/></symbol>
       <symbol id="i-printer" viewBox="0 0 24 24"><path d="M7 9V3h10v6M7 17H4v-8h16v8h-3M7 14h10v7H7z"/></symbol>
     </defs>
   </svg>
@@ -99,18 +102,24 @@
         </div>
 
         <div class="toolbar__group" aria-label="Archivo">
-          <button class="btn" id="btn-sample" title="Cargar un HTML de ejemplo">
-            <svg class="icon"><use href="#i-file"/></svg><span class="btn__label">Muestra</span>
+          <button class="btn" id="btn-open" title="Abrir uno o varios archivos .html, .htm o .txt (Ctrl+O). También podés arrastrarlos al editor">
+            <svg class="icon"><use href="#i-folder"/></svg><span class="btn__label">Abrir</span>
           </button>
-          <button class="btn" id="btn-clear" title="Vaciar el editor">
-            <svg class="icon"><use href="#i-trash"/></svg><span class="btn__label">Limpiar</span>
+          <input type="file" id="file-input" accept=".html,.htm,.txt,text/html,text/plain" multiple hidden>
+          <button class="btn" id="btn-save" title="Guardar en el archivo (Ctrl+S)">
+            <svg class="icon"><use href="#i-save"/></svg><span class="btn__label">Guardar</span>
           </button>
-          <button class="btn" id="btn-import" title="Importar un archivo .html, .htm o .txt (también podés arrastrarlo al editor)">
-            <svg class="icon"><use href="#i-upload"/></svg><span class="btn__label">Importar</span>
+          <button class="btn btn--icon" id="btn-save-as" title="Guardar como… (Ctrl+Shift+S)" aria-label="Guardar como">
+            <svg class="icon"><use href="#i-save-as"/></svg>
           </button>
-          <input type="file" id="file-input" accept=".html,.htm,.txt,text/html,text/plain" hidden>
-          <button class="btn" id="btn-export" title="Exportar como .html o PDF (Ctrl+S)">
+          <button class="btn" id="btn-export" title="Descargar una copia, copiar al portapapeles o exportar a PDF">
             <svg class="icon"><use href="#i-download"/></svg><span class="btn__label">Exportar</span>
+          </button>
+          <button class="btn btn--icon" id="btn-sample" title="Abrir un HTML de ejemplo en una pestaña nueva" aria-label="Abrir ejemplo">
+            <svg class="icon"><use href="#i-file"/></svg>
+          </button>
+          <button class="btn btn--icon" id="btn-clear" title="Vaciar el documento actual" aria-label="Vaciar el documento actual">
+            <svg class="icon"><use href="#i-trash"/></svg>
           </button>
         </div>
 
@@ -140,8 +149,10 @@
          ================================================================ -->
     <main class="workspace" id="workspace" data-mobile-tab="code">
       <section class="pane pane--editor" id="editor-pane" aria-label="Editor de código">
+        <!-- Pestañas de documentos: las dibuja src/ui/doc-tabs.ts -->
+        <nav class="doc-tabs" id="doc-tabs" aria-label="Documentos abiertos"></nav>
         <div class="editor" id="editor"></div>
-        <div class="drop-overlay" aria-hidden="true">Soltá el archivo para importarlo</div>
+        <div class="drop-overlay" aria-hidden="true">Soltá los archivos para abrirlos</div>
       </section>
 
       <div class="splitter" id="splitter" role="separator" tabindex="0"
@@ -261,7 +272,9 @@
       <li>Los <code>console.log</code> y errores de tu página aparecen en la <strong>Consola</strong>, debajo del visor.</li>
       <li><strong>Localizar en el código:</strong> seleccioná texto en la vista previa y el editor resalta el código que lo genera. Se activa o desactiva con el botón de la mira, en la barra del visor.</li>
       <li><strong>Exportar → PDF (vista previa):</strong> abre el diálogo de impresión con solo lo que muestra el visor, sin el código. Elegí <em>Guardar como PDF</em> como destino.</li>
-      <li>Podés <strong>arrastrar un archivo</strong> .html, .htm o .txt sobre el editor para importarlo (máx. 5 MB).</li>
+      <li><strong>Varios documentos:</strong> cada archivo se abre en su propia pestaña, arriba del editor. El <strong>+</strong> crea uno vacío y la <strong>×</strong> lo cierra (también con el botón central del ratón). Un <strong>●</strong> indica cambios sin guardar.</li>
+      <li><strong>Abrir</strong> permite elegir varios archivos a la vez (.html, .htm o .txt, máx. 5 MB cada uno). También podés <strong>arrastrarlos</strong> sobre el editor.</li>
+      <li><strong>Guardar</strong> escribe directamente en el archivo que abriste; la primera vez el navegador pide permiso. En Firefox y Safari, que no lo permiten, descarga una copia.</li>
       <li>Tu código se guarda automáticamente en este navegador y <strong>nunca se envía a ningún servidor</strong>.</li>
     </ul>
 
@@ -269,7 +282,9 @@
     <table class="shortcuts">
       <tbody>
         <tr><td><kbd data-mod>Ctrl</kbd>+<kbd>Enter</kbd></td><td>Previsualizar</td></tr>
-        <tr><td><kbd data-mod>Ctrl</kbd>+<kbd>S</kbd></td><td>Exportar</td></tr>
+        <tr><td><kbd data-mod>Ctrl</kbd>+<kbd>O</kbd></td><td>Abrir archivos</td></tr>
+        <tr><td><kbd data-mod>Ctrl</kbd>+<kbd>S</kbd></td><td>Guardar</td></tr>
+        <tr><td><kbd data-mod>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td><td>Guardar como…</td></tr>
         <tr><td><kbd>Shift</kbd>+<kbd data-alt>Alt</kbd>+<kbd>F</kbd></td><td>Formatear</td></tr>
         <tr><td><kbd data-mod>Ctrl</kbd>+<kbd>F</kbd></td><td>Buscar y reemplazar</td></tr>
         <tr><td><kbd data-mod>Ctrl</kbd>+<kbd>/</kbd></td><td>Comentar / descomentar</td></tr>

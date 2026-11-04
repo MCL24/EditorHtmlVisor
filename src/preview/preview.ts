@@ -79,6 +79,17 @@ export class Preview {
     this.iframe.srcdoc = injectRuntime(html, script);
   }
 
+  /** Posición de scroll actual del visor (la última que informó el runtime). */
+  get scroll(): { x: number; y: number } {
+    return { x: this.scrollX, y: this.scrollY };
+  }
+
+  /** Fija la posición de scroll que se restaurará en el próximo render (al cambiar de documento). */
+  set scroll(position: { x: number; y: number }) {
+    this.scrollX = position.x;
+    this.scrollY = position.y;
+  }
+
   /** HTML (sin anotar) del último render; sirve para saber si el visor está al día. */
   get renderedHtml(): string {
     return this.lastHtml;

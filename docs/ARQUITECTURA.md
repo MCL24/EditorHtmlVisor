@@ -16,15 +16,16 @@ Este documento explica cómo se organiza el código y cómo viajan los datos ent
                          ┌──────────────┐
                          │   main.ts    │  crea y conecta todo
                          └──────┬───────┘
-     ┌──────────────┬───────────┼──────────────┬────────────────┐
-     ▼              ▼           ▼              ▼                ▼
- editor/        preview/       ui/          file-io.ts     shortcuts.ts
- editor.ts      preview.ts     splitter.ts
+     ┌──────────────┬───────────┼──────────────┬────────────────┬──────────────┐
+     ▼              ▼           ▼              ▼                ▼              ▼
+ editor/        preview/       ui/          documents.ts    file-io.ts     shortcuts.ts
+ editor.ts      preview.ts     splitter.ts                  file-system.ts
  formatter.ts   runtime.ts     dialogs.ts
                 source-map.ts  toast.ts
                 console-panel  statusbar.ts
                 devices.ts     theme.ts
-     └──────────────┴───────────┴──────────────┘
+                               doc-tabs.ts
+     └──────────────┴───────────┴──────────────┴────────────────┘
                           │
               config.ts · settings.ts · storage.ts · utils.ts
 ```
@@ -37,9 +38,10 @@ Usuario escribe
    ▼
 CodeMirror (editor.ts) ── updateListener ──► onChange(doc)
                                                 │
-                     main.ts: handleDocumentChange()
+                     main.ts: handleDocumentChange(text)
+                     ├─ doc.content = text; doc.dirty = true   (documento activo)
                      ├─ statusBar.setSaveState('pending')
-                     ├─ autosave()        (debounce 1 s)  ──► localStorage 'ehv:content'
+                     ├─ autosave()        (debounce 1 s)  ──► localStorage 'ehv:documents'
                      └─ scheduleRender()  (debounce 300 ms, solo si Auto está activo)
                                                 │
                                                 ▼
@@ -125,20 +127,51 @@ Un `ResizeObserver` sobre el escenario recalcula la escala cuando cambia el tama
 
 `.github/workflows/deploy.yml` compila y publica `dist/` en GitHub Pages en cada push a `main`. Funciona gracias a `base: './'` en `vite.config.ts`, que hace que todas las rutas sean relativas y el sitio funcione dentro de `/EditorHtmlVisor/`.
 
+## Documentos y archivos
+
+Se pueden tener varios documentos abiertos, uno por pestaña. Las piezas son:
+
+| Módulo | Qué hace |
+| --- | --- |
+| `documents.ts` | Los datos: nombre, contenido, `dirty` (cambios sin guardar en el archivo) y `handle` (el archivo del disco, o `null`). También los lee y guarda en localStorage. |
+| `ui/doc-tabs.ts` | Dibuja las pestañas y avisa de clics: elegir, cerrar, nuevo. |
+| `file-system.ts` | Abrir y guardar en el disco con la *File System Access API*, y recordar los handles en IndexedDB. |
+| `editor/editor.ts` | `showDocument(id, texto)`: cambia el documento visible conservando su historial. |
+| `main.ts`, sección 6 | Las reglas: qué pasa al abrir, guardar o cerrar. |
+
+**Un editor, muchos estados.** Hay una sola vista de CodeMirror. Cada documento tiene su `EditorState` (texto, historial de deshacer, cursor, plegados). Al cambiar de pestaña, el editor guarda el estado actual y muestra el otro con `view.setState`. `setState` no pasa por el `updateListener`, así que cambiar de pestaña no marca el documento como modificado. Las opciones globales (tema, fuente, ajuste) se vuelven a aplicar al estado restaurado, porque pudieron cambiar mientras estaba oculto. El visor recuerda también el scroll de cada documento (`doc.previewScroll`).
+
+**Abrir.**
+- En Chrome y Edge, `showOpenFilePicker` devuelve, para cada archivo elegido, su contenido y un handle que permite volver a escribir en él.
+- En Firefox y Safari se usa `<input type="file" multiple>`, que solo da el contenido.
+- Al arrastrar archivos, `filesFromDrop` pide los handles con `getAsFileSystemHandle()`. Esto tiene que hacerse durante el evento `drop`, porque después el navegador vacía `dataTransfer`.
+- Si un archivo ya estaba abierto (`isSameEntry`), se pasa a su pestaña en lugar de duplicarlo.
+- Si la pestaña activa es "descartable" (sin archivo, sin cambios, vacía o con el ejemplo), el primer archivo abierto la reemplaza.
+
+**Guardar.**
+- Si el documento tiene handle, `writeFile` escribe directamente en el archivo. Si hace falta, antes pide permiso con `requestPermission`. Si no tiene handle, funciona como "Guardar como": `showSaveFilePicker` y, desde ahí, el documento queda vinculado al archivo elegido.
+- Sin la API, "Guardar" abre el diálogo Exportar, que descarga una copia.
+- `dirty` se calcula comparando con el texto que se escribió en el archivo. Así, si se sigue tipeando mientras se guarda, el documento sigue marcado como modificado.
+
+**Handles entre sesiones.** Un handle no es texto y no puede ir a localStorage, pero sí a IndexedDB (`ehv-files`, una entrada por id de documento). Al arrancar se cargan de forma asíncrona y se borran los de documentos que ya no están abiertos. Después de recargar la página, el navegador vuelve a pedir permiso la primera vez que se guarda. Por eso se pide en el momento de guardar, que es cuando hay un gesto del usuario.
+
 ## Persistencia
 
-| Clave en localStorage | Contenido | Cuándo se escribe |
-| --- | --- | --- |
-| `ehv:content` | Texto del editor | 1 s después de la última tecla, y al cerrar si quedaba pendiente |
-| `ehv:settings` | Objeto `Settings` (ver `settings.ts`) | Al cambiar cualquier preferencia |
+| Dónde | Clave | Contenido | Cuándo se escribe |
+| --- | --- | --- | --- |
+| localStorage | `ehv:documents` | Documentos abiertos (`{ version, activeId, docs: [{ id, name, content, dirty }] }`) | 1 s después de la última tecla o de cualquier cambio de pestañas, y al cerrar la página si quedaba pendiente |
+| localStorage | `ehv:settings` | Objeto `Settings` (ver `settings.ts`) | Al cambiar cualquier preferencia |
+| IndexedDB | `ehv-files` / `handles` | Handle del archivo de cada documento | Al abrir, guardar como o cerrar |
+
+- **Migración:** versiones anteriores guardaban un único documento en `ehv:content`. Si `loadDocuments()` no encuentra `ehv:documents`, convierte ese contenido en el primer documento. La clave vieja se borra después del primer autoguardado exitoso.
 
 - `storage.ts` envuelve todo en `try/catch`: leer devuelve `null` y escribir devuelve `false` si falla.
 - `loadSettings()` mezcla lo guardado con `DEFAULT_SETTINGS`, así las preferencias nuevas de versiones futuras reciben un valor por defecto.
-- **Aviso al salir** (`beforeunload`): solo si el autoguardado falló **y** hay cambios sin exportar. En cualquier otro caso, el trabajo ya está a salvo.
+- **Aviso al salir** (`beforeunload`): solo si el autoguardado falló **y** algún documento tiene cambios sin guardar. En cualquier otro caso, el trabajo ya está a salvo en el navegador.
 
 ## Atajos de teclado
 
-`shortcuts.ts` escucha `keydown` en la fase de **captura** de `window`, antes de que el evento llegue a CodeMirror. Así hay un único lugar que decide qué hace cada atajo (CodeMirror usa `Ctrl+Enter` para otra cosa). Con un diálogo abierto, los atajos se pausan. `Ctrl+/`, deshacer y múltiples cursores los resuelve CodeMirror directamente.
+`shortcuts.ts` escucha `keydown` en la fase de **captura** de `window`, antes de que el evento llegue a CodeMirror. Así hay un único lugar que decide qué hace cada atajo (CodeMirror usa `Ctrl+Enter` para otra cosa). Además, `preventDefault` evita las acciones propias del navegador para `Ctrl+S` (guardar la página) y `Ctrl+O` (abrir un archivo). Con un diálogo abierto, los atajos se pausan. `Ctrl+/`, deshacer y múltiples cursores los resuelve CodeMirror directamente.
 
 ## Tema
 

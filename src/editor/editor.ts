@@ -15,6 +15,12 @@
  * "Localizar en el código" usa un resaltado propio (`highlightField`): una
  * decoración que marca un rango sin mover el cursor ni quitarle el foco al visor.
  *
+ * Varios documentos (pestañas): CodeMirror guarda todo lo de un documento
+ * (texto, historial de deshacer, cursor, plegados) en un `EditorState`. Hay un
+ * solo editor en pantalla; al cambiar de pestaña se guarda el estado actual y
+ * se muestra el del otro documento con `view.setState`. Así cada pestaña
+ * conserva su propio historial.
+ *
  * Las opciones que cambian en tiempo de ejecución (tema, tamaño de fuente,
  * ajuste de línea) viven en "compartimentos" (`Compartment`), que permiten
  * reconfigurarlas sin recrear el editor.
@@ -32,11 +38,13 @@ import type { ThemeName } from '../settings';
 
 export interface EditorOptions {
   parent: HTMLElement;
+  /** Id del documento que se muestra al empezar (ver documents.ts). */
+  initialId: string;
   initialDoc: string;
   theme: ThemeName;
   fontSize: number;
   wordWrap: boolean;
-  /** Se llama cada vez que cambia el texto (no al mover el cursor). */
+  /** Se llama cada vez que el usuario cambia el texto (no al mover el cursor ni al cambiar de documento). */
   onChange: (doc: string) => void;
   /** Se llama cuando se mueve el cursor o cambia el texto. Línea y columna empiezan en 1. */
   onCursor: (line: number, column: number, length: number) => void;
@@ -45,6 +53,13 @@ export interface EditorOptions {
 export interface HtmlEditor {
   readonly view: EditorView;
   getValue(): string;
+  /**
+   * Muestra otro documento. Si ya se mostró antes, recupera su historial,
+   * cursor y scroll; si no, lo crea con `text`. No llama a `onChange`.
+   */
+  showDocument(id: string, text: string): void;
+  /** Descarta el estado guardado de un documento (al cerrar su pestaña). */
+  forgetDocument(id: string): void;
   /** Reemplaza todo el contenido. Queda en el historial, así que se puede deshacer. */
   setValue(text: string): void;
   setTheme(theme: ThemeName): void;
@@ -127,6 +142,13 @@ export function createEditor(options: EditorOptions): HtmlEditor {
   const fontSlot = new Compartment();
   const wrapSlot = new Compartment();
 
+  /** Valores actuales de las opciones, para aplicarlos a todos los documentos. */
+  const current = { theme: options.theme, fontSize: options.fontSize, wordWrap: options.wordWrap };
+
+  /** Documentos que no se están mostrando: su estado y su posición de scroll. */
+  const hidden = new Map<string, { state: EditorState; scrollTop: number }>();
+  let currentId = options.initialId;
+
   /** Informa la posición del cursor y la longitud del documento. */
   const reportCursor = (state: EditorState) => {
     const head = state.selection.main.head;
@@ -134,10 +156,10 @@ export function createEditor(options: EditorOptions): HtmlEditor {
     options.onCursor(line.number, head - line.from + 1, state.doc.length);
   };
 
-  const view = new EditorView({
-    parent: options.parent,
-    state: EditorState.create({
-      doc: options.initialDoc,
+  /** Crea el estado de un documento nuevo, con las opciones actuales. */
+  const createState = (doc: string) =>
+    EditorState.create({
+      doc,
       extensions: [
         basicSetup,
         html({ autoCloseTags: true, matchClosingTags: true }),
@@ -146,23 +168,48 @@ export function createEditor(options: EditorOptions): HtmlEditor {
         keymap.of([indentWithTab]),
         layoutTheme,
         highlightField,
-        themeSlot.of(themeExtension(options.theme)),
-        fontSlot.of(fontSizeExtension(options.fontSize)),
-        wrapSlot.of(wrapExtension(options.wordWrap)),
+        themeSlot.of(themeExtension(current.theme)),
+        fontSlot.of(fontSizeExtension(current.fontSize)),
+        wrapSlot.of(wrapExtension(current.wordWrap)),
         EditorView.contentAttributes.of({ 'aria-label': 'Editor de código HTML' }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) options.onChange(update.state.doc.toString());
           if (update.docChanged || update.selectionSet) reportCursor(update.state);
         }),
       ],
-    }),
-  });
+    });
 
+  const view = new EditorView({ parent: options.parent, state: createState(options.initialDoc) });
   reportCursor(view.state);
 
   return {
     view,
     getValue: () => view.state.doc.toString(),
+    showDocument(id, text) {
+      if (id === currentId) return;
+      hidden.set(currentId, { state: view.state, scrollTop: view.scrollDOM.scrollTop });
+      const saved = hidden.get(id);
+      hidden.delete(id);
+      currentId = id;
+
+      // setState no pasa por el updateListener, así que cambiar de pestaña no
+      // cuenta como una modificación del documento.
+      view.setState(saved?.state ?? createState(text));
+      // Un estado guardado tiene las opciones de cuando se ocultó; actualizarlas.
+      view.dispatch({
+        effects: [
+          themeSlot.reconfigure(themeExtension(current.theme)),
+          fontSlot.reconfigure(fontSizeExtension(current.fontSize)),
+          wrapSlot.reconfigure(wrapExtension(current.wordWrap)),
+          setHighlight.of(null),
+        ],
+      });
+      view.scrollDOM.scrollTop = saved?.scrollTop ?? 0;
+      reportCursor(view.state);
+    },
+    forgetDocument(id) {
+      hidden.delete(id);
+    },
     setValue(text) {
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: text },
@@ -170,9 +217,18 @@ export function createEditor(options: EditorOptions): HtmlEditor {
         scrollIntoView: true,
       });
     },
-    setTheme: (theme) => view.dispatch({ effects: themeSlot.reconfigure(themeExtension(theme)) }),
-    setFontSize: (px) => view.dispatch({ effects: fontSlot.reconfigure(fontSizeExtension(px)) }),
-    setWordWrap: (enabled) => view.dispatch({ effects: wrapSlot.reconfigure(wrapExtension(enabled)) }),
+    setTheme(theme) {
+      current.theme = theme;
+      view.dispatch({ effects: themeSlot.reconfigure(themeExtension(theme)) });
+    },
+    setFontSize(px) {
+      current.fontSize = px;
+      view.dispatch({ effects: fontSlot.reconfigure(fontSizeExtension(px)) });
+    },
+    setWordWrap(enabled) {
+      current.wordWrap = enabled;
+      view.dispatch({ effects: wrapSlot.reconfigure(wrapExtension(enabled)) });
+    },
     foldAll: () => foldAll(view),
     unfoldAll: () => unfoldAll(view),
     openSearch() {

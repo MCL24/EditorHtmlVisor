@@ -29,6 +29,15 @@ export function writeText(key: string, value: string): boolean {
   }
 }
 
+/** Borra una clave. No hace nada si no existe o si el almacenamiento no está disponible. */
+export function removeKey(key: string): void {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    /* sin almacenamiento: no hay nada que borrar */
+  }
+}
+
 /** Lee y parsea un JSON. Devuelve `null` si no existe, no está disponible o está corrupto. */
 export function readJson<T>(key: string): T | null {
   const raw = readText(key);

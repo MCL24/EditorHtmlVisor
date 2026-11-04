@@ -18,7 +18,9 @@
 import { isAnyDialogOpen } from './ui/dialogs';
 
 export interface ShortcutActions {
-  exportFile: () => void;
+  open: () => void;
+  save: () => void;
+  saveAs: () => void;
   refreshPreview: () => void;
   format: () => void;
   search: () => void;
@@ -40,7 +42,8 @@ export function registerShortcuts(actions: ShortcutActions): void {
 
       let handler: (() => void) | null = null;
 
-      if (mod && !event.shiftKey && !event.altKey && key === 's') handler = actions.exportFile;
+      if (mod && !event.altKey && key === 's') handler = event.shiftKey ? actions.saveAs : actions.save;
+      else if (mod && !event.shiftKey && !event.altKey && key === 'o') handler = actions.open;
       else if (mod && key === 'enter') handler = actions.refreshPreview;
       else if (event.shiftKey && event.altKey && !mod && event.code === 'KeyF') handler = actions.format;
       else if (mod && !event.shiftKey && !event.altKey && key === 'f') handler = actions.search;
@@ -55,7 +58,7 @@ export function registerShortcuts(actions: ShortcutActions): void {
       }
 
       if (!handler) return;
-      event.preventDefault(); // p. ej. evita el "Guardar página" del navegador con Ctrl+S
+      event.preventDefault(); // evita "Guardar página" (Ctrl+S) y "Abrir archivo" (Ctrl+O) del navegador
       event.stopPropagation();
       handler();
     },

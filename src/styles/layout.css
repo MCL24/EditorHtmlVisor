@@ -115,6 +115,105 @@
   min-height: 0;
 }
 
+/* --- Pestañas de documentos (ver ui/doc-tabs.ts) ------------------------------ */
+.doc-tabs {
+  display: flex;
+  align-items: stretch;
+  flex: none;
+  height: 34px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.doc-tabs__list {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden; /* el margin-bottom: -1px de la pestaña activa no debe generar scroll vertical */
+  scrollbar-width: thin;
+}
+.doc-tab {
+  display: flex;
+  align-items: center;
+  flex: none;
+  max-width: 220px;
+  padding-right: 4px;
+  color: var(--text-muted);
+  border-right: 1px solid var(--border);
+}
+.doc-tab:hover {
+  background: var(--bg-hover);
+}
+.doc-tab--active {
+  color: var(--text);
+  background: var(--bg-editor);
+  /* Tapa el borde inferior de la barra: la pestaña "se une" al editor. */
+  margin-bottom: -1px;
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+.doc-tab__name {
+  min-width: 0;
+  height: 100%;
+  padding: 0 6px 0 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.doc-tab__dot,
+.doc-tab__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 4px;
+}
+.doc-tab__dot {
+  display: none;
+  font-size: 10px;
+  color: var(--accent);
+}
+.doc-tab__close {
+  font-size: 16px;
+  line-height: 1;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.doc-tab__close:hover {
+  background: var(--bg-active);
+}
+/* Con cambios sin guardar se ve el punto; al pasar el ratón (o con foco), la ×. */
+.doc-tab--dirty .doc-tab__dot {
+  display: flex;
+}
+.doc-tab--dirty:not(:hover):not(:focus-within) .doc-tab__close {
+  display: none;
+}
+.doc-tab--dirty:hover .doc-tab__dot,
+.doc-tab--dirty:focus-within .doc-tab__dot {
+  display: none;
+}
+.doc-tabs__new {
+  flex: none;
+  width: 34px;
+  font-size: 18px;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.doc-tabs__new:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
 /* Capa que aparece al arrastrar un archivo sobre el editor (ver file-io.ts). */
 .drop-overlay {
   position: absolute;

@@ -1,8 +1,10 @@
 /**
- * file-io.ts — Importar y exportar archivos, y copiar al portapapeles.
+ * file-io.ts — Validar y leer archivos, descargar copias, portapapeles y
+ * arrastrar y soltar.
  *
  * Todo ocurre localmente en el navegador: los archivos se leen con la API
  * File y se descargan con un enlace a un Blob. Nada se envía a un servidor.
+ * Guardar directamente en el disco está en file-system.ts.
  */
 
 import { CONFIG } from './config';
@@ -68,8 +70,11 @@ export async function copyToClipboard(text: string): Promise<boolean> {
  * Habilita arrastrar y soltar archivos sobre `target`.
  * Mientras se arrastra un archivo encima, `target` recibe el atributo `data-dragging`
  * (el CSS lo usa para mostrar una capa indicativa).
+ *
+ * `onDrop` recibe el `DataTransfer` y debe leerlo en ese mismo momento:
+ * pasado el evento, el navegador lo vacía.
  */
-export function setupDropZone(target: HTMLElement, onFile: (file: File) => void): void {
+export function setupDropZone(target: HTMLElement, onDrop: (data: DataTransfer) => void): void {
   // Contador para ignorar los dragenter/dragleave que disparan los elementos hijos.
   let depth = 0;
   const hasFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files') ?? false;
@@ -106,8 +111,7 @@ export function setupDropZone(target: HTMLElement, onFile: (file: File) => void)
       event.preventDefault();
       event.stopPropagation();
       reset();
-      const file = event.dataTransfer?.files[0];
-      if (file) onFile(file);
+      if (event.dataTransfer) onDrop(event.dataTransfer);
     },
     true,
   );

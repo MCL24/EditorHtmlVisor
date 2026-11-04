@@ -8,7 +8,7 @@
  *
  * Diálogos (definidos en index.html):
  *   #confirm-dialog   confirmación genérica (Muestra, Limpiar)
- *   #export-dialog    nombre del archivo + descargar / copiar
+ *   #export-dialog    nombre del archivo + descargar copia / copiar / PDF
  *   #help-dialog      atajos y guía de uso
  */
 

@@ -12,10 +12,10 @@ export const CONFIG = {
   /** Espera (ms) desde la última tecla hasta autoguardar en localStorage. */
   autosaveDebounceMs: 1000,
 
-  /** Tamaño máximo de un archivo importado (5 MB). */
+  /** Tamaño máximo de cada archivo que se abre (5 MB). */
   maxImportBytes: 5 * 1024 * 1024,
 
-  /** Extensiones aceptadas al importar (en minúsculas, con punto). */
+  /** Extensiones aceptadas al abrir archivos (en minúsculas, con punto). */
   importExtensions: ['.html', '.htm', '.txt'],
 
   /** Ancho mínimo (px) de cada panel al arrastrar el divisor. */
@@ -29,6 +29,12 @@ export const CONFIG = {
 
   /** Cantidad máxima de mensajes que conserva el panel de consola. */
   maxConsoleEntries: 500,
+
+  /**
+   * Cantidad máxima de documentos abiertos a la vez. Todos se autoguardan en
+   * localStorage, que suele tener unos 5 MB en total.
+   */
+  maxOpenDocuments: 20,
 
   /** Nombre de archivo sugerido al exportar. */
   defaultExportName: 'index.html',
@@ -54,7 +60,10 @@ export const PREVIEW_SANDBOX = 'allow-scripts allow-modals allow-forms allow-pop
 
 /** Claves usadas en localStorage. Todas llevan el prefijo `ehv:` (Editor HTML Visor). */
 export const STORAGE_KEYS = {
-  content: 'ehv:content',
+  /** Documentos abiertos (ver documents.ts). */
+  documents: 'ehv:documents',
+  /** Formato anterior (un solo documento). Solo se lee para migrarlo. */
+  legacyContent: 'ehv:content',
   settings: 'ehv:settings',
 } as const;
 
